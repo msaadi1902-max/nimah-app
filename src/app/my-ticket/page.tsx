@@ -1,10 +1,11 @@
 'use client'
-import React from 'react'
+import React, { Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { ArrowRight, MapPin, Clock, ShieldCheck, MessageSquareWarning, Copy } from 'lucide-react'
 import BottomNav from '@/components/BottomNav'
 
-export default function OrderNumberTicketPage() {
+// 1. استخراج المحتوى الذي يستخدم useSearchParams إلى مكوّن منفصل
+function TicketContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   
@@ -14,7 +15,7 @@ export default function OrderNumberTicketPage() {
   const storeName = searchParams.get('store') || 'مخبز البركة'
 
   return (
-    <div className="min-h-screen bg-emerald-600 pb-28 text-right p-6 font-sans" dir="rtl">
+    <>
       {/* الهيدر */}
       <div className="flex items-center justify-between text-white mb-8">
         <button onClick={() => router.back()} className="bg-white/20 p-2 rounded-xl">
@@ -55,7 +56,7 @@ export default function OrderNumberTicketPage() {
 
           <div className="flex gap-4 pt-4">
              <button className="flex-1 bg-emerald-600 text-white py-5 rounded-[25px] font-black shadow-lg shadow-emerald-100 active:scale-95 transition-all">
-                تم الاستلام بنجاح ✅
+               تم الاستلام بنجاح ✅
              </button>
           </div>
 
@@ -76,7 +77,18 @@ export default function OrderNumberTicketPage() {
            بمجرد ضغطك على "تم الاستلام" أو قيام التاجر بتأكيد الرقم، يتم إغلاق الطلب وحفظ الحقوق المالية للطرفين.
          </p>
       </div>
+    </>
+  )
+}
 
+// 2. المكون الرئيسي الذي يغلف المحتوى بـ Suspense
+export default function OrderNumberTicketPage() {
+  return (
+    <div className="min-h-screen bg-emerald-600 pb-28 text-right p-6 font-sans" dir="rtl">
+      {/* هنا غلاف الحماية الذي سيحل المشكلة */}
+      <Suspense fallback={<div className="flex items-center justify-center min-h-[50vh] text-white font-bold">جاري تحميل التذكرة...</div>}>
+        <TicketContent />
+      </Suspense>
       <BottomNav activeTab="home" />
     </div>
   )
