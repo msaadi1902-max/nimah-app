@@ -1,92 +1,103 @@
 'use client'
-import React, { useState, useEffect } from 'react'
+import React, { useEffect, useState } from 'react'
 import { createClient } from '@supabase/supabase-js'
-import { Megaphone, Users, CheckCircle, Clock, Send, ShieldAlert } from 'lucide-react'
+import { CheckCircle, Store, Clock, ShieldAlert } from 'lucide-react'
 
+// ربط قاعدة البيانات
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
 
-export default function AdminDashboard() {
-  const [activeTab, setActiveTab] = useState<'ads' | 'requests'>('ads')
-  const [adMessage, setAdMessage] = useState('')
-  const [loading, setLoading] = useState(false)
+export default function AdminPanelPage() {
+  const [pendingMerchants, setPendingMerchants] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
 
-  // دالة إرسال إعلان عام (إشعار إداري)
-  const sendGlobalAd = async () => {
-    if (!adMessage) return alert("يرجى كتابة نص الإعلان")
+  // جلب التجار الذين ينتظرون الموافقة عند فتح الصفحة
+  useEffect(() => {
+    fetchPendingMerchants()
+  }, [])
+
+  const fetchPendingMerchants = async () => {
     setLoading(true)
-    
-    // سنقوم بحفظ الإعلان في جدول إشعارات عامة
-    const { error } = await supabase.from('admin_notifications').insert([
-      { message: adMessage, type: 'promo', created_at: new Date() }
-    ])
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('role', 'merchant')
+      .eq('is_approved', false)
 
-    if (!error) {
-      alert("تم إرسال الإعلان الممول لجميع المستخدمين بنجاح! 🚀")
-      setAdMessage('')
-    } else {
-      alert("خطأ في الإرسال: " + error.message)
-    }
+    if (data) setPendingMerchants(data)
     setLoading(false)
   }
 
+  // دالة الموافقة على التاجر
+  const approveMerchant = async (id: string, shopName: string) => {
+    const confirmApprove = window.confirm(`هل أنت متأكد من الموافقة على انضمام مطعم "${shopName}"؟`)
+    if (!confirmApprove) return
+
+    const { error } = await supabase
+      .from('profiles')
+      .update({ is_approved: true })
+      .eq('id', id)
+
+    if (!error) {
+      alert('✅ تم تفعيل حساب التاجر بنجاح!')
+      fetchPendingMerchants() // تحديث القائمة لإخفاء التاجر الذي تمت الموافقة عليه
+    } else {
+      alert('حدث خطأ: ' + error.message)
+    }
+  }
+
   return (
-    <div className="min-h-screen bg-slate-900 text-white p-6" dir="rtl">
-      {/* هيدر الإدارة القوي */}
-      <div className="flex items-center gap-4 mb-10 border-b border-slate-700 pb-6">
-        <div className="bg-rose-600 p-3 rounded-2xl shadow-lg shadow-rose-900/20">
-          <ShieldAlert size={30} />
+    <div className="min-h-screen bg-gray-50 p-6 text-right font-sans" dir="rtl">
+      
+      <div className="mb-10 flex items-center gap-3">
+        <div className="bg-emerald-600 p-3 rounded-2xl text-white shadow-lg shadow-emerald-200">
+          <ShieldAlert size={28} />
         </div>
         <div>
-          <h1 className="text-2xl font-black italic">لوحة تحكم المدير 🔒</h1>
-          <p className="text-xs text-slate-400 font-bold tracking-widest uppercase">إدارة "نِعمة" - نظام الإعلانات والشركاء</p>
+          <h1 className="text-2xl font-black text-gray-900">لوحة الإدارة</h1>
+          <p className="text-sm text-gray-500 font-bold">مراجعة طلبات الانضمام الجديدة</p>
         </div>
       </div>
 
-      {/* أزرار التنقل بين الأقسام */}
-      <div className="flex gap-4 mb-8">
-        <button 
-          onClick={() => setActiveTab('ads')}
-          className={`flex-1 py-4 rounded-2xl font-black text-sm flex items-center justify-center gap-2 transition-all ${activeTab === 'ads' ? 'bg-emerald-600 shadow-xl shadow-emerald-900/20' : 'bg-slate-800 text-slate-500'}`}
-        >
-          <Megaphone size={18} /> إرسال إعلان ممول
-        </button>
-        <button 
-          onClick={() => setActiveTab('requests')}
-          className={`flex-1 py-4 rounded-2xl font-black text-sm flex items-center justify-center gap-2 transition-all ${activeTab === 'requests' ? 'bg-emerald-600 shadow-xl shadow-emerald-900/20' : 'bg-slate-800 text-slate-500'}`}
-        >
-          <Users size={18} /> طلبات الانضمام
-        </button>
-      </div>
-
-      {/* محتوى قسم الإعلانات */}
-      {activeTab === 'ads' && (
-        <div className="space-y-6 animate-in fade-in duration-500">
-          <div className="bg-slate-800 p-6 rounded-[35px] border border-slate-700">
-            <label className="block text-xs font-black text-slate-500 mb-4 uppercase mr-2">نص الرسالة الترويجية (ستظهر لجميع المستخدمين)</label>
-            <textarea 
-              rows={5}
-              value={adMessage}
-              onChange={(e) => setAdMessage(e.target.value)}
-              placeholder="اكتب هنا: مثلاً.. عرض حصري لمتابعي نِعمة! خصم 50% في مطعم..."
-              className="w-full bg-slate-900 border-none rounded-2xl p-4 text-sm font-bold text-emerald-400 placeholder:text-slate-700 focus:ring-2 focus:ring-emerald-500 transition-all resize-none"
-            />
-            <button 
-              onClick={sendGlobalAd}
-              disabled={loading}
-              className="w-full mt-6 bg-emerald-600 hover:bg-emerald-500 py-5 rounded-[25px] font-black text-lg flex items-center justify-center gap-3 shadow-xl transition-all active:scale-95 disabled:opacity-50"
-            >
-              <Send size={20} /> {loading ? 'جاري البث...' : 'بث الإعلان الآن'}
-            </button>
-          </div>
-          <p className="text-[10px] text-slate-500 text-center font-bold italic px-10">
-            * تنبيه: عند الضغط على بث، سيتم إرسال الإشعار فوراً لقسم "عروض الإدارة" لدى كافة الزبائن.
-          </p>
+      {loading ? (
+        <div className="text-center text-emerald-600 font-bold mt-20 animate-pulse">
+          جاري جلب الطلبات...
         </div>
-      )}
+      ) : pendingMerchants.length === 0 ? (
+        <div className="bg-white rounded-[30px] p-10 text-center shadow-sm border border-gray-100 flex flex-col items-center">
+          <CheckCircle size={48} className="text-gray-300 mb-4" />
+          <h2 className="text-lg font-black text-gray-400">لا يوجد طلبات معلقة!</h2>
+          <p className="text-xs text-gray-400 font-bold mt-2">لقد قمت بمراجعة جميع التجار.</p>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {pendingMerchants.map((merchant) => (
+            <div key={merchant.id} className="bg-white rounded-[25px] p-6 shadow-sm border border-gray-100 flex flex-col gap-4 relative overflow-hidden">
+              <div className="absolute top-0 left-0 w-2 h-full bg-amber-400"></div>
+              
+              <div className="flex justify-between items-start">
+                <div>
+                  <h3 className="text-xl font-black text-gray-900 flex items-center gap-2">
+                    <Store size={20} className="text-emerald-600" />
+                    {merchant.shop_name || 'مطعم غير معروف'}
+                  </h3>
+                  <p className="text-xs text-gray-400 font-bold mt-1">ID: {merchant.id.substring(0, 8)}...</p>
+                </div>
+                <div className="bg-amber-50 text-amber-600 px-3 py-1 rounded-full text-[10px] font-black flex items-center gap-1 border border-amber-100">
+                  <Clock size={12} /> قيد المراجعة
+                </div>
+              </div>
 
-      {activeTab === 'requests' && (
-        <div className="text-center py-20 text-slate-600 font-bold italic animate-pulse">
-           جاري جلب طلبات المطاعم الجديدة من الجدول... 🔄
+              <div className="flex gap-2 mt-2">
+                <button 
+                  onClick={() => approveMerchant(merchant.id, merchant.shop_name)}
+                  className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-3 rounded-xl font-black text-sm flex items-center justify-center gap-2 transition-colors active:scale-95 shadow-md shadow-emerald-100"
+                >
+                  <CheckCircle size={18} />
+                  موافقة وتفعيل الحساب
+                </button>
+              </div>
+            </div>
+          ))}
         </div>
       )}
     </div>
