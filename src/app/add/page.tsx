@@ -1,165 +1,121 @@
 'use client'
-import React, { useState, useEffect } from 'react'
+import React, { useEffect, useState } from 'react'
 import { createClient } from '@supabase/supabase-js'
-import { useRouter } from 'next/navigation'
-import { Package, Tag, Clock, Info, Store } from 'lucide-react'
+import { Search, MapPin, Clock, ShoppingBag, Flame } from 'lucide-react'
 import BottomNav from '@/components/BottomNav'
+import { useRouter } from 'next/navigation'
 
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
 
-export default function AddProductPage() {
+export default function ExplorePage() {
+  const [meals, setMeals] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
   const router = useRouter()
-  const [loading, setLoading] = useState(false)
-  const [offerType, setOfferType] = useState<'box' | 'deal'>('box') // box: صندوق مفاجآت, deal: عرض تجاري
-  
-  const [formData, setFormData] = useState({
-    name: '',
-    description: '',
-    price: '',
-    original_price: '',
-    quantity: 1,
-    category: 'Bakery',
-    start_time: '19:00',
-    end_time: '21:00'
-  })
 
-  // تحديث تلقائي للاسم إذا كان "صندوق مفاجآت"
   useEffect(() => {
-    if (offerType === 'box') {
-      setFormData(prev => ({ ...prev, name: 'صندوق نِعمة للمفاجآت 🎁' }))
-    } else {
-      setFormData(prev => ({ ...prev, name: '' }))
-    }
-  }, [offerType])
+    fetchMeals()
+  }, [])
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const fetchMeals = async () => {
     setLoading(true)
-    const { data: { user } } = await supabase.auth.getUser()
+    const { data, error } = await supabase
+      .from('meals')
+      .select('*')
+      .order('id', { ascending: false }) // لعرض أحدث الوجبات أولاً
 
-    const { error } = await supabase.from('meals').insert([
-      { 
-        ...formData, 
-        user_id: user?.id,
-        is_rescue_meal: offerType === 'box', // الصندوق يعتبر وجبة إنقاذ دائماً
-        price: parseFloat(formData.price),
-        original_price: parseFloat(formData.original_price)
-      }
-    ])
-
-    if (!error) {
-      alert('تم نشر العرض بنجاح! 🚀')
-      router.push('/')
-    } else {
-      alert('خطأ: ' + error.message)
-    }
+    if (data) setMeals(data)
     setLoading(false)
   }
 
-  return (
-    <div className="min-h-screen bg-gray-50 pb-28 text-right" dir="rtl">
-      <div className="p-8 bg-emerald-600 text-white rounded-b-[50px] shadow-xl">
-        <h1 className="text-2xl font-black">أنشئ عرضاً جديداً 📢</h1>
-        <p className="text-sm opacity-80 mt-1 text-emerald-100 font-bold">اختر نوع العرض الذي تود نشره للزبائن</p>
-      </div>
+  const handleReserve = (mealId: string) => {
+    // في المستقبل سننقل المستخدم لصفحة الدفع أو السلة، حالياً سننقله لتذكرة الحجز
+    router.push(`/my-ticket?order_no=${mealId.substring(0, 5).toUpperCase()}`)
+  }
 
-      <div className="px-6 -mt-8 space-y-6">
-        {/* اختيار نوع العرض - Switcher */}
-        <div className="bg-white p-2 rounded-[30px] shadow-lg flex gap-2 border border-emerald-50">
-          <button 
-            onClick={() => setOfferType('box')}
-            className={`flex-1 py-4 rounded-[25px] font-black text-sm flex items-center justify-center gap-2 transition-all ${offerType === 'box' ? 'bg-emerald-600 text-white shadow-lg' : 'text-gray-400'}`}
-          >
-            <Package size={18} /> صندوق مفاجآت
-          </button>
-          <button 
-            onClick={() => setOfferType('deal')}
-            className={`flex-1 py-4 rounded-[25px] font-black text-sm flex items-center justify-center gap-2 transition-all ${offerType === 'deal' ? 'bg-emerald-600 text-white shadow-lg' : 'text-gray-400'}`}
-          >
-            <Tag size={18} /> عرض تجاري
-          </button>
+  return (
+    <div className="min-h-screen bg-gray-50 pb-28 text-right font-sans" dir="rtl">
+      
+      {/* الهيدر وشريط البحث */}
+      <div className="bg-emerald-600 px-6 pt-8 pb-6 rounded-b-[40px] shadow-md">
+        <div className="flex justify-between items-center mb-6 text-white">
+          <div>
+            <p className="text-xs font-bold text-emerald-100 mb-1">موقعك الحالي</p>
+            <h1 className="text-sm font-black flex items-center gap-1">
+              <MapPin size={16} /> دمشق، الميدان
+            </h1>
+          </div>
+          <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
+            <ShoppingBag size={20} />
+          </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="bg-white p-6 rounded-[35px] shadow-sm border border-gray-100 space-y-5">
-            
-            {/* إرشادات نوع العرض */}
-            <div className="bg-blue-50 p-4 rounded-2xl flex items-start gap-3 text-blue-700">
-              <Info size={20} className="mt-1 flex-shrink-0" />
-              <p className="text-xs font-bold leading-relaxed">
-                {offerType === 'box' 
-                  ? "صندوق المفاجآت: يجمع فائض الطعام بسعر مخفض جداً. الزبون يحجز الصندوق ويستلمه في الوقت المحدد."
-                  : "العرض التجاري: أعلن عن تخفيضات على منتجات معينة (هواتف، ملابس، مكتبة) لزيادة المبيعات."}
-              </p>
-            </div>
+        <div className="relative">
+          <input 
+            type="text" 
+            placeholder="ابحث عن وجبة، مطعم، أو مخبز..." 
+            className="w-full bg-white rounded-2xl py-4 pr-12 pl-4 text-sm font-bold text-black focus:outline-none shadow-sm"
+          />
+          <Search size={20} className="absolute right-4 top-4 text-gray-400" />
+        </div>
+      </div>
 
-            {/* تفاصيل العرض */}
-            <div>
-              <label className="block text-xs font-black text-gray-400 mb-2 mr-2 uppercase">القسم</label>
-              <select 
-                className="w-full p-4 rounded-2xl bg-gray-50 border-none font-bold text-gray-700"
-                onChange={(e) => setFormData({...formData, category: e.target.value})}
-              >
-                <option value="Bakery">مخابز 🥖</option>
-                <option value="Restaurants">مطاعم 🍲</option>
-                <option value="Supermarket">ماركت 🛒</option>
-                <option value="Mobile">موبايلات 📱</option>
-                <option value="Clothes">ملابس 👕</option>
-                <option value="Stationery">مكتبة 📚</option>
-              </select>
-            </div>
+      {/* قسم العروض */}
+      <div className="p-6">
+        <h2 className="text-lg font-black text-gray-900 mb-4 flex items-center gap-2">
+          <Flame size={20} className="text-rose-500" /> عروض التوفير اليوم
+        </h2>
 
-            {offerType === 'deal' && (
-              <div>
-                <label className="block text-xs font-black text-gray-400 mb-2 mr-2 uppercase">اسم المنتج</label>
-                <input type="text" required placeholder="مثلاً: ايفون 15 برو ماكس"
-                  className="w-full p-4 rounded-2xl bg-gray-50 border-none font-bold"
-                  value={formData.name}
-                  onChange={(e) => setFormData({...formData, name: e.target.value})} />
-              </div>
-            )}
+        {loading ? (
+          <div className="text-center text-emerald-600 font-bold mt-10 animate-pulse">
+            جاري البحث عن أشهى الوجبات...
+          </div>
+        ) : meals.length === 0 ? (
+          <div className="text-center bg-white p-8 rounded-3xl border border-gray-100 shadow-sm mt-4">
+            <p className="text-gray-500 font-bold">لا يوجد وجبات متوفرة حالياً، عد لاحقاً!</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {meals.map((meal) => (
+              <div key={meal.id} className="bg-white rounded-[25px] overflow-hidden shadow-sm border border-gray-100">
+                {/* صورة وهمية مؤقتة للوجبة */}
+                <div className="h-32 bg-gray-200 relative">
+                  <div className="absolute top-3 right-3 bg-emerald-500 text-white text-[10px] font-black px-3 py-1 rounded-full shadow-md">
+                    وفر {Math.round(((meal.original_price - meal.discounted_price) / meal.original_price) * 100)}%
+                  </div>
+                </div>
+                
+                <div className="p-4">
+                  <div className="flex justify-between items-start mb-2">
+                    <h3 className="text-base font-black text-gray-900">{meal.name}</h3>
+                    <p className="text-xs font-bold text-gray-500 line-through">{meal.original_price} ل.س</p>
+                  </div>
+                  
+                  <div className="flex justify-between items-center mb-4">
+                    <p className="text-xs text-gray-500 font-bold flex items-center gap-1">
+                      <Clock size={12} className="text-emerald-500" /> استلام: {meal.pickup_time}
+                    </p>
+                    <p className="text-lg font-black text-emerald-600">{meal.discounted_price} ل.س</p>
+                  </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-black text-gray-400 mb-2 mr-2 uppercase">سعر العرض (€)</label>
-                <input type="number" step="0.01" required placeholder="5.00"
-                  className="w-full p-4 rounded-2xl bg-gray-50 border-none font-bold"
-                  onChange={(e) => setFormData({...formData, price: e.target.value})} />
-              </div>
-              <div>
-                <label className="block text-xs font-black text-gray-400 mb-2 mr-2 uppercase">السعر الأصلي (€)</label>
-                <input type="number" step="0.01" required placeholder="15.00"
-                  className="w-full p-4 rounded-2xl bg-gray-50 border-none font-bold"
-                  onChange={(e) => setFormData({...formData, original_price: e.target.value})} />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-black text-gray-400 mb-2 mr-2 uppercase">الكمية المتاحة</label>
-                <input type="number" required placeholder="10"
-                  className="w-full p-4 rounded-2xl bg-gray-50 border-none font-bold"
-                  onChange={(e) => setFormData({...formData, quantity: parseInt(e.target.value)})} />
-              </div>
-              <div>
-                <label className="block text-xs font-black text-gray-400 mb-2 mr-2 uppercase">وقت الاستلام</label>
-                <div className="flex items-center bg-gray-50 rounded-2xl px-2">
-                  <input type="time" className="w-full p-4 bg-transparent border-none font-bold text-xs"
-                    onChange={(e) => setFormData({...formData, end_time: e.target.value})} />
-                  <Clock size={16} className="text-gray-400" />
+                  <div className="flex gap-3 items-center">
+                    <button 
+                      onClick={() => handleReserve(meal.id)}
+                      className="flex-1 bg-gray-900 text-white py-3 rounded-xl text-sm font-black active:scale-95 transition-transform"
+                    >
+                      احجز الآن
+                    </button>
+                    <div className="bg-orange-50 text-orange-600 px-3 py-3 rounded-xl text-xs font-black border border-orange-100">
+                      باقي {meal.quantity}
+                    </div>
+                  </div>
                 </div>
               </div>
-            </div>
-
-            <button type="submit" disabled={loading}
-              className="w-full bg-emerald-600 text-white font-black py-5 rounded-[25px] shadow-xl shadow-emerald-100 active:scale-95 transition-all text-lg"
-            >
-              {loading ? 'جاري النشر...' : 'انشر العرض الآن 🚀'}
-            </button>
+            ))}
           </div>
-        </form>
+        )}
       </div>
-      <BottomNav activeTab="profile" />
+
+      <BottomNav activeTab="explore" />
     </div>
   )
 }
