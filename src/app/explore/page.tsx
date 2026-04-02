@@ -16,7 +16,7 @@ export default function ExplorePage() {
           </div>
         </div>
       </div>
-      <BottomNav activeTab="explore" />
+      <BottomNav activeTab="home" />
     </div>
   );
 }

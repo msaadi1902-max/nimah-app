@@ -161,7 +161,7 @@ export default function CategoryPage() {
         </div>
       </div>
 
-      <BottomNav activeTab="explore" />
+      <BottomNav activeTab="home" />
     </div>
   );
 }
