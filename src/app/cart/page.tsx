@@ -189,7 +189,7 @@ export default function CartPage() {
         </div>
         <CheckoutSection />
       </div>
-      <BottomNav activeTab="home" />
+      <BottomNav activeTab="cart" />
     </div>
   );
 }

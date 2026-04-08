@@ -159,7 +159,7 @@ export default function RegisterMerchantPage() {
           </div>
         </form>
       </div>
-      <BottomNav />
+      <BottomNav activeTab="home" />
     </div>
   )
 }
