@@ -1,73 +1,127 @@
+'use client'
 import React from 'react'
 import Link from 'next/link'
-import { ArrowLeft, Leaf, ShoppingBag, TrendingDown } from 'lucide-react'
+import { MapPin, Heart, Star, ChevronDown, Search } from 'lucide-react'
 import BottomNav from '@/components/BottomNav'
+
+// بيانات وهمية للتجربة (سنربطها بقاعدة البيانات لاحقاً)
+const MOCK_MEALS = [
+  {
+    id: 1,
+    restaurantName: 'مخبز الأمل',
+    type: 'صندوق مفاجآت',
+    rating: 4.8,
+    distance: '850 م',
+    time: 'اليوم: 08:00 م - 10:00 م',
+    newPrice: '2.99',
+    oldPrice: '10.00',
+    image: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?q=80&w=800&auto=format&fit=crop',
+    logo: 'https://ui-avatars.com/api/?name=أمل&background=10b981&color=fff',
+    isNew: true,
+  },
+  {
+    id: 2,
+    restaurantName: 'مطعم دمشق العريق',
+    type: 'وجبات عشاء',
+    rating: 4.2,
+    distance: '1.2 كم',
+    time: 'اليوم: 09:30 م - 11:00 م',
+    newPrice: '4.50',
+    oldPrice: '15.00',
+    image: 'https://images.unsplash.com/photo-1544025162-831514dfbbda?q=80&w=800&auto=format&fit=crop',
+    logo: 'https://ui-avatars.com/api/?name=دمشق&background=047857&color=fff',
+    isNew: false,
+    leftCount: 2,
+  }
+]
 
 export default function HomePage() {
   return (
     <div className="min-h-screen bg-gray-50 pb-28 text-right font-sans" dir="rtl">
       
-      {/* القسم العلوي (الترحيب) */}
-      <div className="bg-emerald-600 px-6 pt-14 pb-12 rounded-b-[45px] shadow-lg relative overflow-hidden">
-        {/* تأثيرات بصرية للخلفية */}
-        <div className="absolute top-0 right-0 w-full h-full opacity-10 bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-white via-transparent to-transparent"></div>
-        <div className="relative z-10">
-          <h1 className="text-3xl font-black text-white mb-3">مرحباً بك في نِعمة ✨</h1>
-          <p className="text-emerald-100 font-bold text-sm leading-relaxed">
-            أنقذ الطعام اللذيذ، وفر مالك، واحمِ كوكبنا. خطوتك الأولى نحو استهلاك أكثر وعياً تبدأ من هنا.
-          </p>
-        </div>
-      </div>
-
-      {/* زر اتخاذ الإجراء (الدخول السريع للعروض) */}
-      <div className="px-6 -mt-8 relative z-20">
-        <Link href="/explore" className="bg-gray-900 text-white p-5 rounded-3xl shadow-xl flex items-center justify-between group active:scale-95 transition-all">
-          <div>
-            <h2 className="text-lg font-black mb-1">استكشف العروض الآن</h2>
-            <p className="text-xs text-gray-300 font-bold">وجبات شهية بأسعار مخفضة جداً</p>
-          </div>
-          <div className="bg-gray-800 p-3 rounded-full group-hover:-translate-x-2 transition-transform">
-            <ArrowLeft size={20} className="text-emerald-400" />
-          </div>
+      {/* 1. الهيدر (الموقع الجغرافي) */}
+      <div className="bg-white pt-10 pb-4 px-6 sticky top-0 z-10 shadow-sm">
+        <Link href="/browse" className="flex items-center justify-center gap-1 text-gray-900 active:scale-95 transition-transform">
+          <ChevronDown size={18} className="text-gray-400" />
+          <span className="font-black text-base">الموقع الحالي</span>
+          <span className="text-gray-500 text-sm">دمشق، الميدان</span>
+          <MapPin size={16} className="text-emerald-600 mr-1" />
         </Link>
       </div>
 
-      {/* قسم المميزات (لماذا نِعمة؟) */}
-      <div className="px-6 mt-10 space-y-4">
-        <h3 className="text-xl font-black text-gray-900 mb-4">لماذا نِعمة؟</h3>
-
-        <div className="bg-white p-5 rounded-[25px] shadow-sm border border-gray-100 flex items-center gap-4 transition-all hover:shadow-md">
-          <div className="bg-emerald-50 p-4 rounded-2xl text-emerald-600">
-            <TrendingDown size={24} />
-          </div>
-          <div>
-            <h4 className="font-black text-gray-900 text-base">توفير يصل إلى 70%</h4>
-            <p className="text-xs text-gray-500 font-bold mt-1">احصل على وجباتك المفضلة بأسعار لا تقبل المنافسة.</p>
-          </div>
-        </div>
-
-        <div className="bg-white p-5 rounded-[25px] shadow-sm border border-gray-100 flex items-center gap-4 transition-all hover:shadow-md">
-          <div className="bg-amber-50 p-4 rounded-2xl text-amber-600">
-            <ShoppingBag size={24} />
-          </div>
-          <div>
-            <h4 className="font-black text-gray-900 text-base">طعام طازج ولذيذ</h4>
-            <p className="text-xs text-gray-500 font-bold mt-1">فائض المطاعم والمخابز بجودة عالية يومياً.</p>
-          </div>
-        </div>
-
-        <div className="bg-white p-5 rounded-[25px] shadow-sm border border-gray-100 flex items-center gap-4 transition-all hover:shadow-md">
-          <div className="bg-blue-50 p-4 rounded-2xl text-blue-600">
-            <Leaf size={24} />
-          </div>
-          <div>
-            <h4 className="font-black text-gray-900 text-base">حماية البيئة</h4>
-            <p className="text-xs text-gray-500 font-bold mt-1">كل وجبة تنقذها تقلل من انبعاثات الكربون المضرة.</p>
-          </div>
-        </div>
+      {/* 2. شريط الأقسام (التصنيفات) */}
+      <div className="bg-white px-4 pb-4 border-b border-gray-100 flex gap-2 overflow-x-auto hide-scrollbar">
+        <button className="bg-emerald-800 text-white px-5 py-2 rounded-full text-sm font-black whitespace-nowrap">الكل</button>
+        <button className="bg-emerald-50 text-emerald-800 px-5 py-2 rounded-full text-sm font-black whitespace-nowrap">وجبات</button>
+        <button className="bg-emerald-50 text-emerald-800 px-5 py-2 rounded-full text-sm font-black whitespace-nowrap">مخابز وحلويات</button>
+        <button className="bg-emerald-50 text-emerald-800 px-5 py-2 rounded-full text-sm font-black whitespace-nowrap">بقالة</button>
       </div>
 
-      {/* شريط التنقل السفلي */}
+      {/* 3. العروض (البطاقات) */}
+      <div className="p-4 space-y-6 mt-2">
+        <div className="flex justify-between items-center mb-2">
+          <Link href="/browse" className="text-emerald-700 font-bold text-sm">عرض الكل</Link>
+          <h2 className="text-xl font-black text-gray-900">أفضل اللقطات بقربك</h2>
+        </div>
+
+        {MOCK_MEALS.map((meal) => (
+          // يتم توجيه الزبون لصفحة تفاصيل المطعم عند الضغط على البطاقة (سنبرمجها لاحقاً)
+          <div key={meal.id} className="bg-white rounded-[20px] shadow-sm border border-gray-200 overflow-hidden relative cursor-pointer hover:shadow-md transition-shadow">
+            
+            {/* صورة العرض والعناصر فوقها */}
+            <div className="relative h-44 bg-gray-200 w-full">
+              <img src={meal.image} alt={meal.restaurantName} className="w-full h-full object-cover" />
+              
+              {/* شريط التقييم */}
+              <div className="absolute top-3 right-3 bg-white/95 px-2 py-1 rounded-lg flex items-center gap-1 shadow-sm">
+                <Star size={14} className="fill-emerald-600 text-emerald-600" />
+                <span className="font-black text-xs text-gray-900">{meal.rating}</span>
+              </div>
+
+              {/* شارات إضافية (جديد / العدد المتبقي) */}
+              {meal.isNew && (
+                <div className="absolute top-3 left-3 bg-white/95 px-2 py-1 rounded-lg shadow-sm font-black text-xs text-gray-900">
+                  جديد
+                </div>
+              )}
+              {meal.leftCount && (
+                <div className="absolute top-3 left-3 bg-amber-100 px-2 py-1 rounded-lg shadow-sm font-black text-xs text-amber-800">
+                  باقي {meal.leftCount}
+                </div>
+              )}
+
+              {/* لوغو المطعم */}
+              <div className="absolute -bottom-5 left-4 w-12 h-12 bg-white rounded-full border-2 border-white shadow-md overflow-hidden z-10">
+                <img src={meal.logo} alt="logo" className="w-full h-full object-cover" />
+              </div>
+            </div>
+
+            {/* تفاصيل البطاقة السفلية */}
+            <div className="p-4 pt-4">
+              <div className="flex justify-between items-start mb-1">
+                <div className="pl-14"> {/* مساحة للوغو */}
+                  <h3 className="font-black text-lg text-gray-900 leading-tight">{meal.restaurantName}</h3>
+                  <p className="text-gray-500 text-sm font-bold">{meal.type}</p>
+                </div>
+                <button className="text-emerald-700 bg-emerald-50 p-2 rounded-full">
+                  <Heart size={20} />
+                </button>
+              </div>
+
+              <div className="mt-4 pt-3 border-t border-gray-100 border-dashed flex justify-between items-center">
+                <p className="text-xs text-gray-500 font-bold">{meal.time}</p>
+                <span className="text-gray-400 text-xs font-bold">{meal.distance}</span>
+              </div>
+
+              <div className="mt-2 flex items-center gap-2">
+                <span className="font-black text-xl text-emerald-800">{meal.newPrice} €</span>
+                <span className="text-gray-400 line-through text-sm font-bold">{meal.oldPrice} €</span>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
       <BottomNav activeTab="home" />
     </div>
   )
