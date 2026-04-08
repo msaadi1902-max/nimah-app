@@ -1,13 +1,20 @@
 'use client'
 import React, { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { PlusCircle, Utensils, DollarSign, Clock, Camera, ArrowRight, Save } from 'lucide-react'
+import { createClient } from '@supabase/supabase-js'
+import { PlusCircle, Utensils, Clock, Camera, ArrowRight } from 'lucide-react'
+
+// إعداد الاتصال بقاعدة البيانات Supabase
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+)
 
 export default function MerchantDashboard() {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
 
-  // بيانات المنتج الجديد
+  // حالة المنتج لجمع البيانات من الفورم
   const [product, setProduct] = useState({
     title: '',
     category: 'وجبات',
@@ -19,14 +26,36 @@ export default function MerchantDashboard() {
     description: ''
   })
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // دالة الحفظ وإرسال البيانات إلى Supabase
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
-    // هنا سنضيف كود الحفظ في قاعدة البيانات لاحقاً
-    setTimeout(() => {
+
+    // دمج وقت البداية والنهاية في نص واحد
+    const pickupTimeFormatted = `من ${product.startTime} إلى ${product.endTime}`
+
+    // إرسال البيانات لجدول meals
+    const { data, error } = await supabase
+      .from('meals')
+      .insert([
+        {
+          name: product.title,
+          original_price: parseFloat(product.originalPrice),
+          discounted_price: parseFloat(product.discountedPrice),
+          quantity: parseInt(product.quantity),
+          pickup_time: pickupTimeFormatted,
+        }
+      ])
+
+    setLoading(false)
+
+    if (error) {
+      alert('❌ عذراً، حدث خطأ أثناء النشر: ' + error.message)
+    } else {
       alert('✅ تم نشر العرض بنجاح وسيظهر للزبائن الآن!')
-      setLoading(false)
-    }, 1500)
+      // إعادة التوجيه للصفحة الرئيسية ليرى التاجر عرضه
+      router.push('/')
+    }
   }
 
   return (
@@ -34,7 +63,7 @@ export default function MerchantDashboard() {
       {/* هيدر لوحة التحكم */}
       <div className="bg-emerald-800 text-white p-6 rounded-b-[40px] shadow-lg mb-6">
         <div className="flex items-center justify-between mb-4">
-          <button onClick={() => router.back()} className="bg-white/10 p-2 rounded-xl">
+          <button onClick={() => router.back()} className="bg-white/10 p-2 rounded-xl active:scale-95 transition-transform">
             <ArrowRight size={20} />
           </button>
           <h1 className="text-xl font-black">لوحة تحكم التاجر 🏪</h1>
@@ -78,6 +107,8 @@ export default function MerchantDashboard() {
               <label className="block text-xs font-black text-gray-500 mb-2 mr-2 italic">السعر الأصلي (€)</label>
               <input 
                 type="number" 
+                required
+                step="0.01"
                 placeholder="10.00"
                 className="w-full bg-white border-2 border-gray-100 rounded-2xl p-4 text-black font-black text-center"
                 value={product.originalPrice}
@@ -88,12 +119,26 @@ export default function MerchantDashboard() {
               <label className="block text-xs font-black text-emerald-600 mb-2 mr-2 italic">سعر نِعمة (€)</label>
               <input 
                 type="number" 
+                required
+                step="0.01"
                 placeholder="3.00"
                 className="w-full bg-emerald-50 border-2 border-emerald-200 rounded-2xl p-4 text-emerald-800 font-black text-center"
                 value={product.discountedPrice}
                 onChange={(e) => setProduct({...product, discountedPrice: e.target.value})}
               />
             </div>
+          </div>
+          
+          <div>
+            <label className="block text-xs font-black text-gray-500 mb-2 mr-2 italic">الكمية المتوفرة (كم صندوق؟)</label>
+            <input 
+              type="number" 
+              required
+              placeholder="1"
+              className="w-full bg-white border-2 border-gray-100 rounded-2xl p-4 text-black font-black focus:border-emerald-600 focus:outline-none"
+              value={product.quantity}
+              onChange={(e) => setProduct({...product, quantity: e.target.value})}
+            />
           </div>
         </div>
 
@@ -107,6 +152,7 @@ export default function MerchantDashboard() {
               <span className="text-[10px] font-black text-gray-400 block mb-1">من الساعة</span>
               <input 
                 type="time" 
+                required
                 className="w-full bg-gray-50 rounded-xl p-3 font-black text-center border border-gray-100"
                 value={product.startTime}
                 onChange={(e) => setProduct({...product, startTime: e.target.value})}
@@ -116,6 +162,7 @@ export default function MerchantDashboard() {
               <span className="text-[10px] font-black text-gray-400 block mb-1">إلى الساعة</span>
               <input 
                 type="time" 
+                required
                 className="w-full bg-gray-50 rounded-xl p-3 font-black text-center border border-gray-100"
                 value={product.endTime}
                 onChange={(e) => setProduct({...product, endTime: e.target.value})}
@@ -130,7 +177,7 @@ export default function MerchantDashboard() {
           disabled={loading}
           className="w-full bg-emerald-700 text-white py-5 rounded-[25px] font-black text-lg shadow-xl shadow-emerald-100 active:scale-95 transition-all flex items-center justify-center gap-2"
         >
-          {loading ? 'جاري النشر...' : <><PlusCircle size={22} /> انشر العرض الآن 🚀</>}
+          {loading ? 'جاري النشر وتحديث البيانات...' : <><PlusCircle size={22} /> انشر العرض الآن 🚀</>}
         </button>
       </form>
     </div>
