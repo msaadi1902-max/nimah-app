@@ -1,7 +1,7 @@
 'use client'
 import React, { useEffect, useState } from 'react'
 import { createClient } from '@supabase/supabase-js'
-import { ShieldCheck, CheckCircle, XCircle, Star, Loader2, externalLink, ShoppingBag } from 'lucide-react'
+import { ShieldCheck, CheckCircle, XCircle, Star, Loader2, ShoppingBag } from 'lucide-react'
 
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
 
@@ -9,7 +9,6 @@ export default function AdminPortal() {
   const [pendingMeals, setPendingMeals] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
-  // جلب المنتجات التي لم يتم الموافقة عليها بعد
   const fetchPending = async () => {
     setLoading(true)
     const { data } = await supabase
@@ -23,7 +22,6 @@ export default function AdminPortal() {
 
   useEffect(() => { fetchPending() }, [])
 
-  // دالة الموافقة أو الرفض
   const updateStatus = async (id: number, approved: boolean, featured: boolean = false) => {
     const { error } = await supabase
       .from('meals')
@@ -64,7 +62,7 @@ export default function AdminPortal() {
                 <div className="flex justify-between items-start mb-4">
                   <div>
                     <h3 className="text-xl font-black">{meal.name}</h3>
-                    <p className="text-emerald-400 font-bold text-xs">{meal.category} • {meal.price} €</p>
+                    <p className="text-emerald-400 font-bold text-xs">{meal.category} • {meal.discounted_price || meal.original_price} €</p>
                   </div>
                   <span className="text-[10px] bg-slate-700 px-2 py-1 rounded-lg">ID: #{meal.id}</span>
                 </div>
@@ -86,7 +84,7 @@ export default function AdminPortal() {
                     onClick={() => updateStatus(meal.id, false, false)}
                     className="col-span-2 flex items-center justify-center gap-2 bg-rose-600/10 text-rose-500 hover:bg-rose-600 hover:text-white p-4 rounded-2xl font-black text-xs transition-all mt-2"
                   >
-                    <XCircle size={16} /> رفض وحذف العرض
+                    <XCircle size={16} /> رفض وحذف
                   </button>
                 </div>
               </div>
