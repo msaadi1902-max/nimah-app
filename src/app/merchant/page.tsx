@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@supabase/supabase-js'
 import { Store, Package, CheckCircle, Clock, ArrowRight, Loader2, PlusCircle } from 'lucide-react'
+import BottomNav from '@/components/BottomNav'
 
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
 
@@ -34,15 +35,14 @@ export default function MerchantOrdersPage() {
     if (error) {
       alert("حدث خطأ أثناء التحديث: " + error.message)
     } else {
-      alert("✅ تم التسليم بنجاح! طعام هنيء للزبون.")
+      alert("✅ تم التسليم بنجاح!")
       setOrders(orders.filter(order => order.id !== orderId))
     }
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 text-right font-sans pb-20" dir="rtl">
+    <div className="min-h-screen bg-gray-50 text-right font-sans pb-32" dir="rtl">
       
-      {/* الهيدر المحدث مع زر الإضافة (+) */}
       <div className="bg-gray-900 text-white p-6 pt-12 pb-8 rounded-b-[40px] shadow-lg mb-6">
         <div className="flex items-center justify-between mb-4">
           <button onClick={() => router.push('/profile')} className="bg-white/10 p-2 rounded-xl active:scale-95 transition-transform">
@@ -50,23 +50,22 @@ export default function MerchantOrdersPage() {
           </button>
           
           <h1 className="text-2xl font-black flex items-center gap-2">
-            <Store size={24} className="text-emerald-400" /> لوحة المطعم
+            <Store size={24} className="text-emerald-400" /> لوحة الإدارة
           </h1>
 
-          {/* زر إضافة وجبة جديدة ➕ */}
           <button 
             onClick={() => router.push('/merchant/add-meal')} 
-            className="bg-emerald-500 text-white p-2 rounded-xl active:scale-95 shadow-lg shadow-emerald-500/20 transition-all"
+            className="bg-emerald-500 text-white p-2 rounded-xl active:scale-95 shadow-lg shadow-emerald-500/20"
           >
             <PlusCircle size={22} />
           </button>
         </div>
-        <p className="text-gray-400 text-sm font-bold text-center">إدارة طلبات الزبائن وتجهيزها للاستلام</p>
+        <p className="text-gray-400 text-sm font-bold text-center">إدارة طلبات الزبائن (مطاعم وماركت)</p>
       </div>
 
       <div className="px-6 space-y-4">
         <h2 className="font-black text-xl text-gray-800 mb-4 flex items-center gap-2">
-          <Package size={20} className="text-emerald-600" /> الطلبات الواردة
+          <Package size={20} className="text-emerald-600" /> الطلبات الجديدة
         </h2>
 
         {loading ? (
@@ -76,8 +75,8 @@ export default function MerchantOrdersPage() {
         ) : orders.length === 0 ? (
           <div className="text-center bg-white p-8 rounded-[30px] shadow-sm border border-gray-100 mt-10">
             <Clock size={50} className="mx-auto text-gray-300 mb-4" />
-            <h3 className="font-black text-gray-900 text-lg mb-2">لا توجد طلبات بعد</h3>
-            <p className="text-gray-500 font-bold text-sm">بانتظار أول زبون لإنقاذ وجباتك اللذيذة!</p>
+            <h3 className="font-black text-gray-900 text-lg mb-2">لا توجد طلبات</h3>
+            <p className="text-gray-500 font-bold text-sm">بانتظار أول عملية إنقاذ للمنتجات!</p>
           </div>
         ) : (
           orders.map((order) => (
@@ -96,18 +95,21 @@ export default function MerchantOrdersPage() {
               </div>
               <hr className="border-gray-50 my-3" />
               <div className="flex justify-between items-center">
-                <span className="text-xs font-black text-gray-400">رقم الطلب: #{order.id}</span>
+                <span className="text-xs font-black text-gray-400">رقم العملية: #{order.id}</span>
                 <button 
                   onClick={() => handleDeliver(order.id)}
                   className="flex items-center gap-1 text-emerald-600 bg-emerald-50 px-4 py-2 rounded-xl text-xs font-black active:scale-95 transition-transform border border-emerald-100"
                 >
-                  <CheckCircle size={16} /> تسليم للزبون
+                  <CheckCircle size={16} /> تم التسليم
                 </button>
               </div>
             </div>
           ))
         )}
       </div>
+
+      {/* 👈 هنا ربطنا التبويب الصحيح لكي تضيء أيقونة التاجر */}
+      <BottomNav activeTab="merchant" />
     </div>
   )
 }
