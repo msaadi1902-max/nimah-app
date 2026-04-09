@@ -1,41 +1,44 @@
 'use client'
 import React from 'react'
 import Link from 'next/link'
-import { Home, Search, Sparkles, Heart, User } from 'lucide-react'
+import { Home, Search, LayoutDashboard, Ticket, User } from 'lucide-react'
 
-// تم تغيير cart إلى favorites
 interface BottomNavProps {
-  activeTab: 'home' | 'browse' | 'impact' | 'favorites' | 'profile'
+  activeTab: 'home' | 'browse' | 'merchant' | 'tickets' | 'profile'
 }
 
 export default function BottomNav({ activeTab }: BottomNavProps) {
   return (
-    <div className="fixed bottom-0 left-0 w-full bg-white border-t border-gray-200 px-6 py-3 flex justify-between items-center z-50" dir="rtl">
+    <div className="fixed bottom-0 left-0 w-full bg-white border-t border-gray-100 px-6 py-3 flex justify-between items-center z-50 shadow-[0_-5px_15px_rgba(0,0,0,0.05)]" dir="rtl">
       
-      <Link href="/" className={`flex flex-col items-center gap-1 transition-colors ${activeTab === 'home' ? 'text-emerald-700' : 'text-gray-400'}`}>
-        <Home size={24} className={activeTab === 'home' ? 'fill-emerald-100' : ''} />
-        <span className="text-[10px] font-bold">الرئيسية</span>
+      {/* الرئيسية */}
+      <Link href="/" className={`flex flex-col items-center gap-1 transition-all active:scale-90 ${activeTab === 'home' ? 'text-emerald-800' : 'text-gray-400'}`}>
+        <Home size={24} className={activeTab === 'home' ? 'fill-emerald-50' : ''} />
+        <span className="text-[10px] font-black">الرئيسية</span>
       </Link>
 
-      <Link href="/browse" className={`flex flex-col items-center gap-1 transition-colors ${activeTab === 'browse' ? 'text-emerald-700' : 'text-gray-400'}`}>
-        <Search size={24} className={activeTab === 'browse' ? 'fill-emerald-100' : ''} />
-        <span className="text-[10px] font-bold">تصفح</span>
+      {/* تصفح */}
+      <Link href="/browse" className={`flex flex-col items-center gap-1 transition-all active:scale-90 ${activeTab === 'browse' ? 'text-emerald-800' : 'text-gray-400'}`}>
+        <Search size={24} className={activeTab === 'browse' ? 'fill-emerald-50' : ''} />
+        <span className="text-[10px] font-black">تصفح</span>
       </Link>
 
-      <Link href="/impact" className={`flex flex-col items-center gap-1 transition-colors ${activeTab === 'impact' ? 'text-emerald-700' : 'text-gray-400'}`}>
-        <Sparkles size={24} className={activeTab === 'impact' ? 'fill-emerald-100' : ''} />
-        <span className="text-[10px] font-bold">أثري</span>
+      {/* لوحة التاجر - الزر الجديد المهم */}
+      <Link href="/merchant" className={`flex flex-col items-center gap-1 transition-all active:scale-90 ${activeTab === 'merchant' ? 'text-emerald-800' : 'text-gray-400'}`}>
+        <LayoutDashboard size={24} className={activeTab === 'merchant' ? 'fill-emerald-50' : ''} />
+        <span className="text-[10px] font-black">التاجر</span>
       </Link>
 
-      {/* زر المفضلة الجديد */}
-      <Link href="/favorites" className={`flex flex-col items-center gap-1 transition-colors ${activeTab === 'favorites' ? 'text-emerald-700' : 'text-gray-400'}`}>
-        <Heart size={24} className={activeTab === 'favorites' ? 'fill-emerald-100 text-emerald-700' : ''} />
-        <span className="text-[10px] font-bold">المفضلة</span>
+      {/* تذاكري - بديل السلة */}
+      <Link href="/tickets" className={`flex flex-col items-center gap-1 transition-all active:scale-90 ${activeTab === 'tickets' ? 'text-emerald-800' : 'text-gray-400'}`}>
+        <Ticket size={24} className={activeTab === 'tickets' ? 'fill-emerald-50' : ''} />
+        <span className="text-[10px] font-black">تذاكري</span>
       </Link>
 
-      <Link href="/profile" className={`flex flex-col items-center gap-1 transition-colors ${activeTab === 'profile' ? 'text-emerald-700' : 'text-gray-400'}`}>
-        <User size={24} className={activeTab === 'profile' ? 'fill-emerald-100' : ''} />
-        <span className="text-[10px] font-bold">حسابي</span>
+      {/* حسابي */}
+      <Link href="/profile" className={`flex flex-col items-center gap-1 transition-all active:scale-90 ${activeTab === 'profile' ? 'text-emerald-800' : 'text-gray-400'}`}>
+        <User size={24} className={activeTab === 'profile' ? 'fill-emerald-50' : ''} />
+        <span className="text-[10px] font-black">حسابي</span>
       </Link>
 
     </div>
