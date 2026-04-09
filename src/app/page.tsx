@@ -74,8 +74,11 @@ export default function HomePage() {
               
               <div className="relative h-44 w-full bg-emerald-50 flex items-center justify-center">
                 {/* صورة مؤقتة حتى نبرمج رفع الصور */}
-                <img src="https://images.unsplash.com/photo-1509440159596-0249088772ff?q=80&w=800&auto=format&fit=crop" alt={meal.name} className="w-full h-full object-cover" />
-                
+                <img 
+  src={meal.image_url || "https://images.unsplash.com/photo-1509440159596-0249088772ff?q=80&w=800&auto=format&fit=crop"} 
+  alt={meal.name} 
+  className="w-full h-full object-cover" 
+/>
                 <div className="absolute top-3 right-3 bg-white/95 px-2 py-1 rounded-lg flex items-center gap-1 shadow-sm">
                   <Star size={14} className="fill-emerald-600 text-emerald-600" />
                   <span className="font-black text-xs text-gray-900">4.5</span>
