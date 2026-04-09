@@ -21,12 +21,11 @@ export default function MerchantDashboard() {
     endTime: '21:00'
   })
 
-  // دالة فتح استوديو الهاتف واختيار الصورة
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0]
       setImageFile(file)
-      setPreviewUrl(URL.createObjectURL(file)) // عرض الصورة في نفس الصفحة مؤقتاً
+      setPreviewUrl(URL.createObjectURL(file))
     }
   }
 
@@ -37,7 +36,6 @@ export default function MerchantDashboard() {
     try {
       let imageUrl = ''
 
-      // 1. رفع الصورة الحقيقية إلى Supabase
       if (imageFile) {
         const fileExt = imageFile.name.split('.').pop()
         const fileName = `${Math.random()}.${fileExt}`
@@ -51,7 +49,6 @@ export default function MerchantDashboard() {
         imageUrl = publicUrl
       }
 
-      // 2. حفظ الوجبة مع رابط الصورة
       const { error } = await supabase
         .from('meals')
         .insert([{
@@ -76,6 +73,8 @@ export default function MerchantDashboard() {
 
   return (
     <div className="min-h-screen bg-gray-50 pb-10 text-right font-sans" dir="rtl">
+      
+      {/* هيدر لوحة التحكم الفخم */}
       <div className="bg-emerald-800 text-white p-6 rounded-b-[40px] shadow-lg mb-6">
         <div className="flex items-center justify-between mb-4">
           <button onClick={() => router.back()} className="bg-white/10 p-2 rounded-xl active:scale-95 transition-transform">
@@ -84,10 +83,18 @@ export default function MerchantDashboard() {
           <h1 className="text-xl font-black">لوحة تحكم التاجر 🏪</h1>
           <div className="w-10"></div>
         </div>
+        <div className="bg-white/10 p-4 rounded-2xl flex items-center gap-3">
+          <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center text-emerald-800 font-black text-xl">م</div>
+          <div>
+            <h2 className="font-black text-sm">مطعم السعدي الأصيل</h2>
+            <p className="text-[10px] text-emerald-100 font-bold italic text-left">حالة الحساب: متجر معتمد ✅</p>
+          </div>
+        </div>
       </div>
 
       <form onSubmit={handleSubmit} className="px-6 space-y-6">
-        {/* الزر السحري الذي يفتح الكاميرا/الاستوديو */}
+        
+        {/* قسم الكاميرا */}
         <div className="relative group">
           <input 
             type="file" 
@@ -95,42 +102,63 @@ export default function MerchantDashboard() {
             onChange={handleImageChange} 
             className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
           />
-          <div className="bg-white p-6 rounded-[30px] border-2 border-dashed border-gray-200 flex flex-col items-center justify-center gap-2 min-h-[160px] overflow-hidden">
+          <div className="bg-white p-6 rounded-[30px] border-2 border-dashed border-gray-200 flex flex-col items-center justify-center gap-2 min-h-[160px] overflow-hidden hover:bg-emerald-50 transition-colors">
             {previewUrl ? (
               <img src={previewUrl} className="w-full h-40 object-cover rounded-2xl" alt="Preview" />
             ) : (
               <>
                 <div className="bg-emerald-100 p-4 rounded-full text-emerald-600"><Camera size={32} /></div>
-                <span className="font-black text-sm text-gray-700">اضغط لالتقاط أو اختيار صورة</span>
+                <span className="font-black text-sm text-gray-700">اضغط لالتقاط صورة للوجبة</span>
+                <span className="text-[10px] text-gray-400 font-bold text-center">يفضل صور واضحة لجذب الزبائن</span>
               </>
             )}
           </div>
         </div>
 
+        {/* تفاصيل المنتج مع خطوط واضحة */}
         <div className="space-y-4">
-          <input type="text" required placeholder="اسم الوجبة" className="w-full bg-white border-2 border-gray-100 rounded-2xl p-4 font-black" 
-            onChange={(e) => setProduct({...product, title: e.target.value})} />
+          <div>
+            <label className="block text-xs font-black text-gray-500 mb-2 mr-2 italic">اسم العرض / الوجبة</label>
+            <input type="text" required placeholder="مثال: صندوق معجنات مشكل" className="w-full bg-white border-2 border-gray-100 rounded-2xl p-4 text-gray-900 font-black focus:border-emerald-600 focus:outline-none shadow-sm" 
+              onChange={(e) => setProduct({...product, title: e.target.value})} />
+          </div>
           
           <div className="flex gap-4">
-            <input type="number" required placeholder="السعر الأصلي" className="flex-1 bg-white border-2 border-gray-100 rounded-2xl p-4 font-black text-center"
-              onChange={(e) => setProduct({...product, originalPrice: e.target.value})} />
-            <input type="number" required placeholder="سعر نِعمة" className="flex-1 bg-emerald-50 border-2 border-emerald-200 rounded-2xl p-4 font-black text-center"
-              onChange={(e) => setProduct({...product, discountedPrice: e.target.value})} />
+            <div className="flex-1">
+              <label className="block text-xs font-black text-gray-500 mb-2 mr-2 italic">السعر الأصلي (€)</label>
+              <input type="number" required step="0.01" placeholder="10.00" className="w-full bg-white border-2 border-gray-100 rounded-2xl p-4 text-gray-900 font-black text-center focus:border-emerald-600 focus:outline-none shadow-sm"
+                onChange={(e) => setProduct({...product, originalPrice: e.target.value})} />
+            </div>
+            <div className="flex-1">
+              <label className="block text-xs font-black text-emerald-600 mb-2 mr-2 italic">سعر نِعمة (€)</label>
+              <input type="number" required step="0.01" placeholder="3.00" className="w-full bg-emerald-50 border-2 border-emerald-200 rounded-2xl p-4 text-emerald-900 font-black text-center focus:border-emerald-600 focus:outline-none shadow-sm"
+                onChange={(e) => setProduct({...product, discountedPrice: e.target.value})} />
+            </div>
           </div>
 
-          <input type="number" required placeholder="الكمية المتوفرة" className="w-full bg-white border-2 border-gray-100 rounded-2xl p-4 font-black"
-            onChange={(e) => setProduct({...product, quantity: e.target.value})} />
+          <div>
+            <label className="block text-xs font-black text-gray-500 mb-2 mr-2 italic">الكمية المتوفرة</label>
+            <input type="number" required placeholder="1" className="w-full bg-white border-2 border-gray-100 rounded-2xl p-4 text-gray-900 font-black focus:border-emerald-600 focus:outline-none shadow-sm"
+              onChange={(e) => setProduct({...product, quantity: e.target.value})} />
+          </div>
         </div>
 
+        {/* الأوقات */}
         <div className="bg-white p-6 rounded-[30px] shadow-sm border border-gray-100">
           <h3 className="font-black text-gray-900 mb-4 flex items-center gap-2 text-sm"><Clock size={18} className="text-emerald-600" /> أوقات توفر الاستلام</h3>
           <div className="flex items-center gap-4">
-            <input type="time" required className="flex-1 bg-gray-50 rounded-xl p-3 font-black text-center border border-gray-100" onChange={(e) => setProduct({...product, startTime: e.target.value})} />
-            <input type="time" required className="flex-1 bg-gray-50 rounded-xl p-3 font-black text-center border border-gray-100" onChange={(e) => setProduct({...product, endTime: e.target.value})} />
+            <div className="flex-1">
+              <span className="text-[10px] font-black text-gray-400 block mb-1">من الساعة</span>
+              <input type="time" required className="w-full bg-gray-50 rounded-xl p-3 text-gray-900 font-black text-center border border-gray-100 focus:outline-none" onChange={(e) => setProduct({...product, startTime: e.target.value})} />
+            </div>
+            <div className="flex-1">
+              <span className="text-[10px] font-black text-gray-400 block mb-1">إلى الساعة</span>
+              <input type="time" required className="w-full bg-gray-50 rounded-xl p-3 text-gray-900 font-black text-center border border-gray-100 focus:outline-none" onChange={(e) => setProduct({...product, endTime: e.target.value})} />
+            </div>
           </div>
         </div>
 
-        <button type="submit" disabled={loading} className="w-full bg-emerald-700 text-white py-5 rounded-[25px] font-black text-lg flex items-center justify-center gap-2">
+        <button type="submit" disabled={loading} className="w-full bg-emerald-700 text-white py-5 rounded-[25px] font-black text-lg flex items-center justify-center gap-2 shadow-xl shadow-emerald-100 active:scale-95 transition-all">
           {loading ? <Loader2 className="animate-spin" /> : 'انشر العرض بالصورة 🚀'}
         </button>
       </form>
