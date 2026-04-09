@@ -1,8 +1,8 @@
 'use client'
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@supabase/supabase-js'
-import { Store, Package, CheckCircle, Clock, ArrowRight, Loader2, PlusCircle } from 'lucide-react'
+import { Store, Package, CheckCircle, Clock, ArrowRight, Loader2, PlusCircle, BellRing } from 'lucide-react'
 import BottomNav from '@/components/BottomNav'
 
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
@@ -11,104 +11,74 @@ export default function MerchantOrdersPage() {
   const router = useRouter()
   const [orders, setOrders] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    fetchOrders()
-  }, [])
+  const audioRef = useRef<HTMLAudioElement | null>(null)
 
   const fetchOrders = async () => {
-    const { data, error } = await supabase
-      .from('orders')
-      .select('*')
-      .order('id', { ascending: false })
-
+    const { data } = await supabase.from('orders').select('*').order('id', { ascending: false })
     if (data) setOrders(data)
     setLoading(false)
   }
 
+  useEffect(() => {
+    fetchOrders()
+
+    // 🔔 إعداد التنبيه الصوتي الحقيقي
+    const channel = supabase
+      .channel('merchant-orders')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'orders' }, (payload) => {
+        // تشغيل الصوت عند وصول طلب جديد
+        if (audioRef.current) {
+          audioRef.current.play().catch(e => console.log("تحتاج للتفاعل مع الصفحة أولاً ليعمل الصوت"))
+        }
+        // تحديث القائمة فوراً
+        setOrders(prev => [payload.new, ...prev])
+      })
+      .subscribe()
+
+    return () => { supabase.removeChannel(channel) }
+  }, [])
+
   const handleDeliver = async (orderId: number) => {
-    const confirmed = window.confirm("هل أنت متأكد من تسليم هذه الوجبة للزبون؟ سيتم حذف الطلب من القائمة.")
+    const confirmed = window.confirm("هل تم التسليم؟")
     if (!confirmed) return
-
-    const { error } = await supabase.from('orders').delete().eq('id', orderId)
-
-    if (error) {
-      alert("حدث خطأ أثناء التحديث: " + error.message)
-    } else {
-      alert("✅ تم التسليم بنجاح!")
-      setOrders(orders.filter(order => order.id !== orderId))
-    }
+    await supabase.from('orders').delete().eq('id', orderId)
+    setOrders(orders.filter(order => order.id !== orderId))
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 text-right font-sans pb-32" dir="rtl">
-      
+    <div className="min-h-screen bg-gray-50 pb-32 text-right" dir="rtl">
+      {/* مشغل الصوت المخفي */}
+      <audio ref={audioRef} src="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3" />
+
       <div className="bg-gray-900 text-white p-6 pt-12 pb-8 rounded-b-[40px] shadow-lg mb-6">
         <div className="flex items-center justify-between mb-4">
-          <button onClick={() => router.push('/profile')} className="bg-white/10 p-2 rounded-xl active:scale-95 transition-transform">
-            <ArrowRight size={20} />
-          </button>
-          
+          <button onClick={() => router.push('/profile')} className="bg-white/10 p-2 rounded-xl"><ArrowRight size={20} /></button>
           <h1 className="text-2xl font-black flex items-center gap-2">
-            <Store size={24} className="text-emerald-400" /> لوحة الإدارة
+            <BellRing size={24} className="text-amber-400 animate-bounce" /> لوحة الإدارة
           </h1>
-
-          <button 
-            onClick={() => router.push('/merchant/add-meal')} 
-            className="bg-emerald-500 text-white p-2 rounded-xl active:scale-95 shadow-lg shadow-emerald-500/20"
-          >
-            <PlusCircle size={22} />
-          </button>
+          <button onClick={() => router.push('/merchant/add-meal')} className="bg-emerald-500 p-2 rounded-xl"><PlusCircle size={22} /></button>
         </div>
-        <p className="text-gray-400 text-sm font-bold text-center">إدارة طلبات الزبائن (مطاعم وماركت)</p>
       </div>
 
       <div className="px-6 space-y-4">
-        <h2 className="font-black text-xl text-gray-800 mb-4 flex items-center gap-2">
-          <Package size={20} className="text-emerald-600" /> الطلبات الجديدة
-        </h2>
-
+        <h2 className="font-black text-xl text-gray-800 mb-4 flex items-center gap-2">الطلبات الواردة</h2>
         {loading ? (
-          <div className="flex justify-center items-center py-20 text-emerald-600">
-            <Loader2 className="animate-spin w-10 h-10" />
-          </div>
-        ) : orders.length === 0 ? (
-          <div className="text-center bg-white p-8 rounded-[30px] shadow-sm border border-gray-100 mt-10">
-            <Clock size={50} className="mx-auto text-gray-300 mb-4" />
-            <h3 className="font-black text-gray-900 text-lg mb-2">لا توجد طلبات</h3>
-            <p className="text-gray-500 font-bold text-sm">بانتظار أول عملية إنقاذ للمنتجات!</p>
-          </div>
-        ) : (
-          orders.map((order) => (
-            <div key={order.id} className="bg-white p-5 rounded-[25px] shadow-sm border border-gray-100 relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-2 h-full bg-emerald-500"></div>
-              <div className="flex justify-between items-start mb-3">
-                <div>
-                  <h3 className="font-black text-lg text-gray-900">{order.meal_name}</h3>
-                  <p className="text-xs font-bold text-gray-500 mt-1">
-                    الزبون: <span className="text-gray-800">{order.customer_email.split('@')[0]}</span>
-                  </p>
-                </div>
-                <span className="bg-emerald-100 text-emerald-800 font-black px-3 py-1 rounded-xl text-sm">
-                  {order.price} €
-                </span>
+          <div className="flex justify-center py-20 text-emerald-600"><Loader2 className="animate-spin w-10 h-10" /></div>
+        ) : orders.map((order) => (
+          <div key={order.id} className="bg-white p-5 rounded-[25px] shadow-sm border-r-4 border-emerald-500 relative">
+            <div className="flex justify-between items-start">
+              <div>
+                <h3 className="font-black text-lg">{order.meal_name}</h3>
+                <p className="text-xs text-gray-500">الزبون: {order.customer_email.split('@')[0]}</p>
               </div>
-              <hr className="border-gray-50 my-3" />
-              <div className="flex justify-between items-center">
-                <span className="text-xs font-black text-gray-400">رقم العملية: #{order.id}</span>
-                <button 
-                  onClick={() => handleDeliver(order.id)}
-                  className="flex items-center gap-1 text-emerald-600 bg-emerald-50 px-4 py-2 rounded-xl text-xs font-black active:scale-95 transition-transform border border-emerald-100"
-                >
-                  <CheckCircle size={16} /> تم التسليم
-                </button>
-              </div>
+              <span className="bg-emerald-100 text-emerald-800 font-black px-3 py-1 rounded-xl">{order.price} €</span>
             </div>
-          ))
-        )}
+            <button onClick={() => handleDeliver(order.id)} className="mt-4 w-full bg-emerald-50 text-emerald-600 py-2 rounded-xl font-black flex items-center justify-center gap-2">
+              <CheckCircle size={16} /> تم التسليم
+            </button>
+          </div>
+        ))}
       </div>
-
-      {/* 👈 هنا ربطنا التبويب الصحيح لكي تضيء أيقونة التاجر */}
       <BottomNav activeTab="merchant" />
     </div>
   )
