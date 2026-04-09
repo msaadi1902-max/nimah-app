@@ -1,41 +1,37 @@
 'use client'
 import React, { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { createClient } from '@supabase/supabase-js' // 👈 أضفنا الاتصال
+import { createClient } from '@supabase/supabase-js'
 import { 
   UserCircle, Wallet, CreditCard, Ticket, Bell, Gift, 
   Store, Info, Share2, LogOut, ChevronLeft, Star, Heart,
-  CircleDollarSign, Landmark, ShieldCheck // 👈 أضفنا أيقونة الدرع
+  CircleDollarSign, Landmark, ShieldCheck 
 } from 'lucide-react'
 import BottomNav from '@/components/BottomNav'
 
-// 👈 إعداد الاتصال بقاعدة البيانات
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
 
 export default function AdvancedProfilePage() {
   const router = useRouter()
-  const [userEmail, setUserEmail] = useState<string | null>(null) // 👈 حالة الإيميل
+  const [userEmail, setUserEmail] = useState<string | null>(null) 
 
-  // 👈 فحص المستخدم عند فتح الصفحة
   useEffect(() => {
     const checkUser = async () => {
       const { data: { user } } = await supabase.auth.getUser()
       if (user) {
         setUserEmail(user.email ?? '')
       } else {
-        router.replace('/login') // طرد المستخدم غير المسجل
+        router.replace('/login') 
       }
     }
     checkUser()
   }, [])
 
-  // 👈 دالة تسجيل الخروج الحقيقية
   const handleLogout = async () => {
     await supabase.auth.signOut()
     router.push('/login')
   }
 
-  // --- قسم المالية والدفع المطور ---
   const paymentSection = {
     title: "المالية وطرق الدفع",
     items: [
@@ -46,8 +42,14 @@ export default function AdvancedProfilePage() {
     ]
   }
 
-  // --- باقي الأقسام كما هي ---
+  // 👇 هنا أضفنا قسم التذاكر في بداية القائمة
   const otherSections = [
+    {
+      title: "طلباتي وحجوزاتي",
+      items: [
+        { name: 'تذاكر الحجز (الوجبات المحجوزة) 🎟️', icon: Ticket, color: 'text-emerald-600', path: '/tickets' },
+      ]
+    },
     {
       title: "المكافآت والخصومات",
       items: [
@@ -71,20 +73,17 @@ export default function AdvancedProfilePage() {
     }
   ]
 
-  // إذا لم يتم جلب الإيميل بعد، نعرض شاشة تحميل أنيقة
   if (!userEmail) return <div className="min-h-screen bg-gray-50 flex items-center justify-center text-emerald-600 font-black animate-pulse">جاري فحص الحساب...</div>
 
   return (
     <div className="min-h-screen bg-gray-50 pb-28 text-right font-sans" dir="rtl">
       
-      {/* 👈 الهيدر الاحترافي (تم تعديله ليعرض اسم المستخدم) */}
       <div className="relative h-64 bg-emerald-600 text-white rounded-b-[60px] shadow-2xl flex flex-col items-center justify-center p-6 overflow-hidden mb-8">
         <div className="absolute top-0 right-0 w-40 h-40 bg-white/10 rounded-full -mr-20 -mt-20 blur-3xl"></div>
         <div className="relative z-10 text-center flex flex-col items-center">
           <div className="w-20 h-20 rounded-full bg-white/20 mb-3 border-4 border-white flex items-center justify-center shadow-inner backdrop-blur-md">
             <UserCircle size={40} className="text-white" />
           </div>
-          {/* عرض الجزء الأول من الإيميل كاسم */}
           <h1 className="text-2xl font-black">{userEmail.split('@')[0]}</h1>
           <p className="text-xs font-bold text-emerald-100 flex items-center gap-1 mt-1 justify-center">
             <ShieldCheck size={14} /> حساب موثق
@@ -94,7 +93,6 @@ export default function AdvancedProfilePage() {
 
       <div className="px-6 space-y-6 relative z-20">
         
-        {/* بطاقة الإحالة السريعة */}
         <div className="bg-gradient-to-r from-purple-600 to-indigo-600 p-6 rounded-[35px] shadow-xl text-white flex justify-between items-center active:scale-95 transition-all">
           <div className="flex-1 text-right">
             <h3 className="font-black text-lg italic">اربح 5€ مجاناً! 🎁</h3>
@@ -103,7 +101,6 @@ export default function AdvancedProfilePage() {
           <Share2 size={30} className="opacity-40" />
         </div>
 
-        {/* عرض قسم الدفع المطور */}
         <div className="space-y-3">
           <h2 className="text-xs font-black text-gray-400 mr-4 mb-2 uppercase tracking-tighter opacity-70 italic">{paymentSection.title}</h2>
           <div className="bg-white rounded-[35px] p-2 shadow-sm border border-gray-100">
@@ -122,7 +119,6 @@ export default function AdvancedProfilePage() {
           </div>
         </div>
 
-        {/* عرض باقي الأقسام */}
         {otherSections.map((section, idx) => (
           <div key={idx} className="space-y-3">
             <h2 className="text-xs font-black text-gray-400 mr-4 mb-2 uppercase tracking-tighter opacity-70 italic">{section.title}</h2>
@@ -142,7 +138,6 @@ export default function AdvancedProfilePage() {
           </div>
         ))}
 
-        {/* 👈 زر تسجيل الخروج החقيقي */}
         <button 
           onClick={handleLogout}
           className="w-full bg-rose-50 text-rose-600 p-5 rounded-[30px] border border-rose-100 font-black flex items-center justify-center gap-3 active:scale-95 transition-all shadow-sm mb-10"
