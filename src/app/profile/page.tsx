@@ -1,49 +1,48 @@
 'use client'
 import React, { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { createClient } from '@supabase/supabase-js' // 👈 أضفنا الاتصال
 import { 
   UserCircle, Wallet, CreditCard, Ticket, Bell, Gift, 
   Store, Info, Share2, LogOut, ChevronLeft, Star, Heart,
-  CircleDollarSign, Landmark
+  CircleDollarSign, Landmark, ShieldCheck // 👈 أضفنا أيقونة الدرع
 } from 'lucide-react'
 import BottomNav from '@/components/BottomNav'
-import { useRouter } from 'next/navigation'
+
+// 👈 إعداد الاتصال بقاعدة البيانات
+const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
 
 export default function AdvancedProfilePage() {
-  const [role, setRole] = useState('customer') 
   const router = useRouter()
+  const [userEmail, setUserEmail] = useState<string | null>(null) // 👈 حالة الإيميل
+
+  // 👈 فحص المستخدم عند فتح الصفحة
+  useEffect(() => {
+    const checkUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        setUserEmail(user.email ?? '')
+      } else {
+        router.replace('/login') // طرد المستخدم غير المسجل
+      }
+    }
+    checkUser()
+  }, [])
+
+  // 👈 دالة تسجيل الخروج الحقيقية
+  const handleLogout = async () => {
+    await supabase.auth.signOut()
+    router.push('/login')
+  }
 
   // --- قسم المالية والدفع المطور ---
   const paymentSection = {
     title: "المالية وطرق الدفع",
     items: [
-      { 
-        name: 'بطاقات بنكية (Visa / MasterCard)', 
-        icon: CreditCard, 
-        color: 'text-blue-600', 
-        path: '/payment/cards',
-        subtitle: 'أوروبا والعالم'
-      },
-      { 
-        name: 'حساب PayPal الإلكتروني', 
-        icon: CircleDollarSign, 
-        color: 'text-blue-800', 
-        path: '/payment/paypal',
-        subtitle: 'دفع سريع وآمن'
-      },
-      { 
-        name: 'شام كاش / تحويل محلي', 
-        icon: Landmark, 
-        color: 'text-emerald-600', 
-        path: '/payment/local',
-        subtitle: 'الخدمة المتوفرة في سوريا'
-      },
-      { 
-        name: 'عملات رقمية (USDT / Crypto)', 
-        icon: Wallet, 
-        color: 'text-orange-500', 
-        path: '/payment/crypto',
-        subtitle: 'دفع لا مركزي سريع'
-      },
+      { name: 'بطاقات بنكية (Visa / MasterCard)', icon: CreditCard, color: 'text-blue-600', path: '/payment/cards', subtitle: 'أوروبا والعالم' },
+      { name: 'حساب PayPal الإلكتروني', icon: CircleDollarSign, color: 'text-blue-800', path: '/payment/paypal', subtitle: 'دفع سريع وآمن' },
+      { name: 'شام كاش / تحويل محلي', icon: Landmark, color: 'text-emerald-600', path: '/payment/local', subtitle: 'الخدمة المتوفرة في سوريا' },
+      { name: 'عملات رقمية (USDT / Crypto)', icon: Wallet, color: 'text-orange-500', path: '/payment/crypto', subtitle: 'دفع لا مركزي سريع' },
     ]
   }
 
@@ -72,21 +71,28 @@ export default function AdvancedProfilePage() {
     }
   ]
 
+  // إذا لم يتم جلب الإيميل بعد، نعرض شاشة تحميل أنيقة
+  if (!userEmail) return <div className="min-h-screen bg-gray-50 flex items-center justify-center text-emerald-600 font-black animate-pulse">جاري فحص الحساب...</div>
+
   return (
-    <div className="min-h-screen bg-gray-50 pb-28 text-right" dir="rtl">
-      {/* الهيدر الاحترافي */}
-      <div className="relative h-64 bg-emerald-600 text-white rounded-b-[60px] shadow-2xl flex flex-col items-center justify-center p-6 overflow-hidden">
+    <div className="min-h-screen bg-gray-50 pb-28 text-right font-sans" dir="rtl">
+      
+      {/* 👈 الهيدر الاحترافي (تم تعديله ليعرض اسم المستخدم) */}
+      <div className="relative h-64 bg-emerald-600 text-white rounded-b-[60px] shadow-2xl flex flex-col items-center justify-center p-6 overflow-hidden mb-8">
         <div className="absolute top-0 right-0 w-40 h-40 bg-white/10 rounded-full -mr-20 -mt-20 blur-3xl"></div>
-        <div className="relative z-10 text-center">
-          <div className="w-24 h-24 rounded-full bg-white/20 mx-auto mb-4 border-4 border-white flex items-center justify-center shadow-inner">
-            <UserCircle size={70} className="text-white opacity-90" />
+        <div className="relative z-10 text-center flex flex-col items-center">
+          <div className="w-20 h-20 rounded-full bg-white/20 mb-3 border-4 border-white flex items-center justify-center shadow-inner backdrop-blur-md">
+            <UserCircle size={40} className="text-white" />
           </div>
-          <h1 className="text-2xl font-black italic">نِعمة ✨</h1>
-          <p className="text-[10px] font-bold opacity-80 uppercase tracking-widest mt-1">حساب المستخدم الموثق</p>
+          {/* عرض الجزء الأول من الإيميل كاسم */}
+          <h1 className="text-2xl font-black">{userEmail.split('@')[0]}</h1>
+          <p className="text-xs font-bold text-emerald-100 flex items-center gap-1 mt-1 justify-center">
+            <ShieldCheck size={14} /> حساب موثق
+          </p>
         </div>
       </div>
 
-      <div className="px-6 -mt-8 space-y-6 relative z-20">
+      <div className="px-6 space-y-6 relative z-20">
         
         {/* بطاقة الإحالة السريعة */}
         <div className="bg-gradient-to-r from-purple-600 to-indigo-600 p-6 rounded-[35px] shadow-xl text-white flex justify-between items-center active:scale-95 transition-all">
@@ -136,10 +142,12 @@ export default function AdvancedProfilePage() {
           </div>
         ))}
 
-        {/* زر تسجيل الخروج */}
-        <button className="w-full bg-rose-50 text-rose-600 p-5 rounded-[30px] border border-rose-100 font-black flex items-center justify-center gap-3 active:scale-95 transition-all shadow-sm mb-10">
-          <LogOut size={22} />
-          تسجيل الخروج
+        {/* 👈 زر تسجيل الخروج החقيقي */}
+        <button 
+          onClick={handleLogout}
+          className="w-full bg-rose-50 text-rose-600 p-5 rounded-[30px] border border-rose-100 font-black flex items-center justify-center gap-3 active:scale-95 transition-all shadow-sm mb-10"
+        >
+          <LogOut size={22} /> تسجيل الخروج بأمان
         </button>
       </div>
 
