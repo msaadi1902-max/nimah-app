@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@supabase/supabase-js'
-import { Store, Package, CheckCircle, Clock, ArrowRight, Loader2 } from 'lucide-react'
+import { Store, Package, CheckCircle, Clock, ArrowRight, Loader2, PlusCircle } from 'lucide-react'
 
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
 
@@ -25,7 +25,6 @@ export default function MerchantOrdersPage() {
     setLoading(false)
   }
 
-  // 🚀 دالة التسليم الحقيقية: تحذف الطلب من قاعدة البيانات
   const handleDeliver = async (orderId: number) => {
     const confirmed = window.confirm("هل أنت متأكد من تسليم هذه الوجبة للزبون؟ سيتم حذف الطلب من القائمة.")
     if (!confirmed) return
@@ -36,21 +35,31 @@ export default function MerchantOrdersPage() {
       alert("حدث خطأ أثناء التحديث: " + error.message)
     } else {
       alert("✅ تم التسليم بنجاح! طعام هنيء للزبون.")
-      setOrders(orders.filter(order => order.id !== orderId)) // تحديث القائمة في الشاشة
+      setOrders(orders.filter(order => order.id !== orderId))
     }
   }
 
   return (
     <div className="min-h-screen bg-gray-50 text-right font-sans pb-20" dir="rtl">
+      
+      {/* الهيدر المحدث مع زر الإضافة (+) */}
       <div className="bg-gray-900 text-white p-6 pt-12 pb-8 rounded-b-[40px] shadow-lg mb-6">
         <div className="flex items-center justify-between mb-4">
           <button onClick={() => router.push('/profile')} className="bg-white/10 p-2 rounded-xl active:scale-95 transition-transform">
             <ArrowRight size={20} />
           </button>
+          
           <h1 className="text-2xl font-black flex items-center gap-2">
             <Store size={24} className="text-emerald-400" /> لوحة المطعم
           </h1>
-          <div className="w-10"></div>
+
+          {/* زر إضافة وجبة جديدة ➕ */}
+          <button 
+            onClick={() => router.push('/merchant/add-meal')} 
+            className="bg-emerald-500 text-white p-2 rounded-xl active:scale-95 shadow-lg shadow-emerald-500/20 transition-all"
+          >
+            <PlusCircle size={22} />
+          </button>
         </div>
         <p className="text-gray-400 text-sm font-bold text-center">إدارة طلبات الزبائن وتجهيزها للاستلام</p>
       </div>
