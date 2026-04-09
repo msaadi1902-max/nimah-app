@@ -12,7 +12,7 @@ export default function FavoritesPage() {
       <p className="text-gray-500 font-bold text-sm text-center px-8">
         هنا ستظهر المطاعم والمخابز التي قمت بحفظها لتصل إليها بسرعة!
       </p>
-      <BottomNav activeTab="favorites" />
+      <BottomNav activeTab="tickets" />
     </div>
   )
 }
