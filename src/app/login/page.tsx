@@ -9,14 +9,9 @@ export default function LoginPage() {
 
   const handleContinue = () => {
     if (role === 'customer') {
-      router.push('/') // يذهب للواجهة الرئيسية للزبائن
-      const handleContinue = () => {
-        if (role === 'customer') {
-          router.push('/auth') // تحويل الزبون لصفحة تسجيل الدخول
-        } else if (role === 'merchant') {
-          router.push('/auth') // تحويل التاجر لصفحة تسجيل الدخول أيضاً
-        }
-      }
+      router.push('/auth') // يذهب لصفحة تسجيل الدخول الجديدة
+    } else if (role === 'merchant') {
+      router.push('/auth') // يذهب لصفحة تسجيل الدخول الجديدة
     }
   }
 
