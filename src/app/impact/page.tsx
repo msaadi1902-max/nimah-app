@@ -77,7 +77,7 @@ export default function ImpactPage() {
         <ImpactStats />
         <BadgesSection />
       </div>
-      <BottomNav activeTab="impact" />
+      <BottomNav activeTab="profile" />
     </div>
   );
 }
