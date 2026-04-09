@@ -11,7 +11,7 @@ export default function OfferDetailsPage() {
   const { id } = useParams()
   const [meal, setMeal] = useState<any>(null)
   const [loading, setLoading] = useState(true)
-  const [bookingLoading, setBookingLoading] = useState(false) // حالة تحميل زر الحجز
+  const [bookingLoading, setBookingLoading] = useState(false)
 
   useEffect(() => {
     fetchMealDetails()
@@ -23,7 +23,6 @@ export default function OfferDetailsPage() {
     setLoading(false)
   }
 
-  // 🚀 دالة الحجز السحرية
   const handleBooking = async () => {
     setBookingLoading(true)
     try {
@@ -36,7 +35,7 @@ export default function OfferDetailsPage() {
         return
       }
 
-      // 2. تسجيل الطلب في جدول orders الجديد
+      // 2. تسجيل الطلب في جدول orders
       const { error: orderError } = await supabase.from('orders').insert([{
         customer_email: user.email,
         meal_name: meal.name,
@@ -49,9 +48,9 @@ export default function OfferDetailsPage() {
       const { error: updateError } = await supabase.from('meals').update({ quantity: newQuantity }).eq('id', meal.id)
       if (updateError) throw updateError
 
-      // 4. نجاح العملية!
+      // 4. نجاح العملية والتوجه لصفحة التذاكر! 🎟️
       alert('🎉 تم حجز الوجبة بنجاح! طعامك اللذيذ بانتظارك.')
-      router.push('/') // مؤقتاً نعود للرئيسية، لاحقاً سنصنع صفحة تذكرة
+      router.push('/tickets') 
 
     } catch (error: any) {
       alert('❌ حدث خطأ أثناء الحجز: ' + error.message)
@@ -104,7 +103,6 @@ export default function OfferDetailsPage() {
           <p className="text-2xl font-black text-emerald-800">{meal.discounted_price} €</p>
         </div>
         
-        {/* 👈 زر الحجز تم ربطه بالدالة المبرمجة */}
         <button 
           onClick={handleBooking}
           disabled={bookingLoading || meal.quantity <= 0}
