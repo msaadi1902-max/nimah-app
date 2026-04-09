@@ -104,7 +104,7 @@ export default function TicketsPage() {
         )}
       </div>
 
-      <BottomNav activeTab="tickets" />
+      <BottomNav activeTab="profile" />
     </div>
   )
 }
