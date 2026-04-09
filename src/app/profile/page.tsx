@@ -42,7 +42,6 @@ export default function AdvancedProfilePage() {
     ]
   }
 
-  // 👇 هنا أضفنا قسم التذاكر في بداية القائمة
   const otherSections = [
     {
       title: "طلباتي وحجوزاتي",
@@ -60,6 +59,7 @@ export default function AdvancedProfilePage() {
     {
       title: "مركز الإشعارات والإدارة",
       items: [
+        { name: 'لوحة إدارة الطلبات (للتاجر) 👨‍🍳', icon: Store, color: 'text-gray-900', path: '/merchant' },
         { name: 'عروض الإدارة الحصرية 📢', icon: Bell, color: 'text-rose-500', path: '/admin-deals' },
         { name: 'سجل مطعمك (أسبوع مجاني)', icon: Store, color: 'text-emerald-600', path: '/register-restaurant' },
       ]
@@ -77,7 +77,6 @@ export default function AdvancedProfilePage() {
 
   return (
     <div className="min-h-screen bg-gray-50 pb-28 text-right font-sans" dir="rtl">
-      
       <div className="relative h-64 bg-emerald-600 text-white rounded-b-[60px] shadow-2xl flex flex-col items-center justify-center p-6 overflow-hidden mb-8">
         <div className="absolute top-0 right-0 w-40 h-40 bg-white/10 rounded-full -mr-20 -mt-20 blur-3xl"></div>
         <div className="relative z-10 text-center flex flex-col items-center">
@@ -92,7 +91,6 @@ export default function AdvancedProfilePage() {
       </div>
 
       <div className="px-6 space-y-6 relative z-20">
-        
         <div className="bg-gradient-to-r from-purple-600 to-indigo-600 p-6 rounded-[35px] shadow-xl text-white flex justify-between items-center active:scale-95 transition-all">
           <div className="flex-1 text-right">
             <h3 className="font-black text-lg italic">اربح 5€ مجاناً! 🎁</h3>
@@ -145,7 +143,6 @@ export default function AdvancedProfilePage() {
           <LogOut size={22} /> تسجيل الخروج بأمان
         </button>
       </div>
-
       <BottomNav activeTab="profile" />
     </div>
   )

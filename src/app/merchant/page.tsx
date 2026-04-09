@@ -4,7 +4,6 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@supabase/supabase-js'
 import { Store, Package, CheckCircle, Clock, ArrowRight, Loader2 } from 'lucide-react'
 
-// الاتصال بقاعدة البيانات
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
 
 export default function MerchantOrdersPage() {
@@ -16,29 +15,36 @@ export default function MerchantOrdersPage() {
     fetchOrders()
   }, [])
 
-  // دالة جلب الطلبات الواردة للتاجر
   const fetchOrders = async () => {
     const { data, error } = await supabase
       .from('orders')
       .select('*')
-      .order('id', { ascending: false }) // عرض أحدث الطلبات في الأعلى
+      .order('id', { ascending: false })
 
     if (data) setOrders(data)
     setLoading(false)
   }
 
-  // دالة وهمية لتسليم الطلب (سنطورها لاحقاً)
-  const handleDeliver = (orderId: number) => {
-    alert(`✅ تم تسليم الطلب رقم #${orderId} للزبون بنجاح!`)
+  // 🚀 دالة التسليم الحقيقية: تحذف الطلب من قاعدة البيانات
+  const handleDeliver = async (orderId: number) => {
+    const confirmed = window.confirm("هل أنت متأكد من تسليم هذه الوجبة للزبون؟ سيتم حذف الطلب من القائمة.")
+    if (!confirmed) return
+
+    const { error } = await supabase.from('orders').delete().eq('id', orderId)
+
+    if (error) {
+      alert("حدث خطأ أثناء التحديث: " + error.message)
+    } else {
+      alert("✅ تم التسليم بنجاح! طعام هنيء للزبون.")
+      setOrders(orders.filter(order => order.id !== orderId)) // تحديث القائمة في الشاشة
+    }
   }
 
   return (
     <div className="min-h-screen bg-gray-50 text-right font-sans pb-20" dir="rtl">
-      
-      {/* الهيدر المخصص للتاجر بلون مختلف (داكن) لتمييزه عن واجهة الزبون */}
       <div className="bg-gray-900 text-white p-6 pt-12 pb-8 rounded-b-[40px] shadow-lg mb-6">
         <div className="flex items-center justify-between mb-4">
-          <button onClick={() => router.push('/')} className="bg-white/10 p-2 rounded-xl active:scale-95 transition-transform">
+          <button onClick={() => router.push('/profile')} className="bg-white/10 p-2 rounded-xl active:scale-95 transition-transform">
             <ArrowRight size={20} />
           </button>
           <h1 className="text-2xl font-black flex items-center gap-2">
@@ -49,7 +55,6 @@ export default function MerchantOrdersPage() {
         <p className="text-gray-400 text-sm font-bold text-center">إدارة طلبات الزبائن وتجهيزها للاستلام</p>
       </div>
 
-      {/* قائمة الطلبات */}
       <div className="px-6 space-y-4">
         <h2 className="font-black text-xl text-gray-800 mb-4 flex items-center gap-2">
           <Package size={20} className="text-emerald-600" /> الطلبات الواردة
@@ -67,11 +72,8 @@ export default function MerchantOrdersPage() {
           </div>
         ) : (
           orders.map((order) => (
-            // بطاقة الطلب
             <div key={order.id} className="bg-white p-5 rounded-[25px] shadow-sm border border-gray-100 relative overflow-hidden">
-              {/* شريط أخضر جانبي للزينة */}
               <div className="absolute top-0 right-0 w-2 h-full bg-emerald-500"></div>
-              
               <div className="flex justify-between items-start mb-3">
                 <div>
                   <h3 className="font-black text-lg text-gray-900">{order.meal_name}</h3>
@@ -83,9 +85,7 @@ export default function MerchantOrdersPage() {
                   {order.price} €
                 </span>
               </div>
-
               <hr className="border-gray-50 my-3" />
-
               <div className="flex justify-between items-center">
                 <span className="text-xs font-black text-gray-400">رقم الطلب: #{order.id}</span>
                 <button 
