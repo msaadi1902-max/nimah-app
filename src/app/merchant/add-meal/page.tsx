@@ -1,154 +1,128 @@
 'use client'
-import React, { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import React, { useEffect, useState } from 'react'
 import { createClient } from '@supabase/supabase-js'
-import { ArrowRight, Utensils, DollarSign, Package, Image as ImageIcon, PlusCircle, Loader2, Store, Clock } from 'lucide-react'
+import { ShieldAlert, CheckCircle, XCircle, Utensils, Store, Loader2, ArrowRight } from 'lucide-react'
+import { useRouter } from 'next/navigation'
 
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
 
-export default function AddMealPage() {
+export default function AdminMealsPage() {
+  const [pendingMeals, setPendingMeals] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
   const router = useRouter()
-  const [loading, setLoading] = useState(false)
-  
-  const [formData, setFormData] = useState({
-    name: '',
-    category: 'مطاعم', // تم التعديل لتطابق الصفحة الرئيسية
-    original_price: '',
-    discounted_price: '',
-    quantity: '',
-    image_url: '',
-    pickup_time: '18:00 - 21:00'
-  })
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+  useEffect(() => {
+    fetchPendingMeals()
+  }, [])
+
+  // جلب العروض التي تنتظر الموافقة
+  const fetchPendingMeals = async () => {
     setLoading(true)
+    const { data, error } = await supabase
+      .from('meals')
+      .select('*')
+      .eq('is_approved', false) // نجلب الغير موافق عليها فقط
+      .order('created_at', { ascending: false })
 
-    try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
-        alert("يجب تسجيل الدخول أولاً.")
-        router.push('/welcome')
-        return
+    if (data) setPendingMeals(data)
+    setLoading(false)
+  }
+
+  // دالة الموافقة على العرض
+  const handleApprove = async (id: number) => {
+    const { error } = await supabase
+      .from('meals')
+      .update({ is_approved: true })
+      .eq('id', id)
+
+    if (!error) {
+      // إخفاء العرض من هذه الشاشة لأنه تمت الموافقة عليه
+      setPendingMeals(pendingMeals.filter(meal => meal.id !== id))
+      alert('✅ تمت الموافقة على العرض! سيظهر للزبائن الآن.')
+    }
+  }
+
+  // دالة رفض العرض (حذفه)
+  const handleReject = async (id: number) => {
+    if (confirm('هل أنت متأكد من رفض وحذف هذا العرض؟')) {
+      const { error } = await supabase.from('meals').delete().eq('id', id)
+      if (!error) {
+        setPendingMeals(pendingMeals.filter(meal => meal.id !== id))
       }
-
-      const { error } = await supabase.from('meals').insert([{
-        name: formData.name,
-        category: formData.category,
-        original_price: parseFloat(formData.original_price),
-        discounted_price: parseFloat(formData.discounted_price),
-        quantity: parseInt(formData.quantity),
-        image_url: formData.image_url || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c',
-        pickup_time: formData.pickup_time,
-        merchant_id: user.id,
-        is_approved: false // تذهب للإدارة أولاً
-      }])
-
-      if (error) throw error
-
-      alert("🎉 تم إرسال العرض بنجاح! سيظهر للزبائن بمجرد موافقة الإدارة.")
-      router.push('/merchant')
-
-    } catch (error: any) {
-      alert("حدث خطأ أثناء الإضافة: " + error.message)
-    } finally {
-      setLoading(false)
     }
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 text-right font-sans pb-10" dir="rtl">
+    <div className="min-h-screen bg-gray-50 pb-20 text-right font-sans" dir="rtl">
       
-      <div className="bg-emerald-800 text-white p-6 pt-12 pb-8 rounded-b-[40px] shadow-lg mb-6">
-        <div className="flex items-center justify-between">
-          <button onClick={() => router.back()} className="bg-white/10 p-2 rounded-xl active:scale-95 transition-transform"><ArrowRight size={20} /></button>
-          <h1 className="text-xl font-black flex items-center gap-2 italic underline decoration-emerald-400">إضافة عرض جديد 🍲</h1>
-          <div className="w-10"></div>
+      {/* هيدر الإدارة */}
+      <div className="bg-slate-900 text-white p-6 pt-12 pb-16 rounded-b-[40px] shadow-2xl relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-40 h-40 bg-rose-500/10 rounded-full -mr-20 -mt-20 blur-3xl"></div>
+        <button onClick={() => router.back()} className="relative z-10 bg-white/10 p-2 rounded-xl mb-6 active:scale-95 transition-transform">
+          <ArrowRight size={20} />
+        </button>
+        <div className="relative z-10">
+          <h1 className="text-2xl font-black flex items-center gap-2 mb-1">
+            <ShieldAlert className="text-rose-400" /> إدارة العروض الجديدة
+          </h1>
+          <p className="text-gray-400 font-bold text-sm">راجع طلبات التجار ووافق عليها لتُنشر في التطبيق</p>
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="px-6 space-y-4">
+      <div className="px-6 -mt-8 relative z-20">
         
-        {/* الصف الأول: الاسم والتصنيف */}
-        <div className="flex gap-4">
-          <div className="flex-[2] bg-white p-4 rounded-3xl shadow-sm border border-gray-100">
-            <label className="text-xs font-black text-gray-400 mb-2 block">اسم المنتج</label>
-            <div className="flex items-center gap-2 bg-gray-50 p-3 rounded-2xl">
-              <Utensils className="text-emerald-600" size={18} />
-              <input required type="text" placeholder="مثلاً: صندوق شاورما..." className="bg-transparent flex-1 text-sm outline-none font-bold" 
-                     onChange={(e) => setFormData({...formData, name: e.target.value})} />
-            </div>
+        {loading ? (
+          <div className="flex justify-center py-20 bg-white rounded-[30px] shadow-lg"><Loader2 className="animate-spin text-slate-800 w-10 h-10" /></div>
+        ) : pendingMeals.length === 0 ? (
+          <div className="text-center bg-white p-12 rounded-[35px] shadow-lg border border-gray-100">
+            <CheckCircle size={50} className="mx-auto text-emerald-400 mb-4" />
+            <h3 className="font-black text-gray-900 text-xl mb-2">الوضع ممتاز!</h3>
+            <p className="text-gray-500 font-bold text-sm">لا توجد عروض بانتظار المراجعة حالياً.</p>
           </div>
-          
-          <div className="flex-[1] bg-white p-4 rounded-3xl shadow-sm border border-gray-100">
-            <label className="text-xs font-black text-gray-400 mb-2 block">التصنيف</label>
-            <div className="flex items-center gap-2 bg-gray-50 p-3 rounded-2xl">
-              <Store className="text-emerald-600" size={18} />
-              <select className="bg-transparent flex-1 text-sm outline-none font-bold w-full"
-                      onChange={(e) => setFormData({...formData, category: e.target.value})} value={formData.category}>
-                <option value="مطاعم">مطاعم</option>
-                <option value="مخابز">مخابز</option>
-                <option value="حلويات">حلويات</option>
-                <option value="بقالة">بقالة</option>
-              </select>
+        ) : (
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 mb-2 px-2">
+              <span className="bg-rose-100 text-rose-600 px-3 py-1 rounded-full text-xs font-black">{pendingMeals.length}</span>
+              <h2 className="text-sm font-black text-gray-600">عروض قيد الانتظار</h2>
             </div>
-          </div>
-        </div>
+            
+            {pendingMeals.map((meal) => (
+              <div key={meal.id} className="bg-white p-5 rounded-[30px] shadow-md border border-gray-100 space-y-4">
+                <div className="flex justify-between items-start border-b border-gray-50 pb-4">
+                  <div className="flex gap-4">
+                    <img src={meal.image_url} alt={meal.name} className="w-16 h-16 rounded-2xl object-cover bg-gray-100" />
+                    <div>
+                      <h3 className="font-black text-lg text-gray-900 leading-tight mb-1">{meal.name}</h3>
+                      <p className="text-xs font-bold text-gray-500 flex items-center gap-1">
+                        <Store size={12} /> {meal.category}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-left">
+                    <p className="font-black text-lg text-emerald-600">{meal.discounted_price} €</p>
+                    <p className="text-[10px] text-gray-400 font-bold line-through">{meal.original_price} €</p>
+                  </div>
+                </div>
 
-        {/* الصف الثاني: الأسعار */}
-        <div className="flex gap-4">
-          <div className="flex-1 bg-white p-4 rounded-3xl shadow-sm border border-gray-100">
-            <label className="text-xs font-black text-gray-400 mb-2 block">السعر الأصلي (€)</label>
-            <div className="flex items-center gap-2 bg-gray-50 p-3 rounded-2xl">
-              <DollarSign className="text-gray-400" size={18} />
-              <input required type="number" step="0.01" placeholder="10.00" className="bg-transparent flex-1 text-sm outline-none font-bold text-gray-400 line-through" 
-                     onChange={(e) => setFormData({...formData, original_price: e.target.value})} />
-            </div>
+                <div className="flex gap-3 pt-2">
+                  <button 
+                    onClick={() => handleApprove(meal.id)}
+                    className="flex-1 bg-emerald-100 hover:bg-emerald-500 hover:text-white text-emerald-700 py-3 rounded-2xl font-black text-sm flex items-center justify-center gap-2 transition-all"
+                  >
+                    <CheckCircle size={18} /> قبول ونشر
+                  </button>
+                  <button 
+                    onClick={() => handleReject(meal.id)}
+                    className="flex-1 bg-rose-50 hover:bg-rose-500 hover:text-white text-rose-600 py-3 rounded-2xl font-black text-sm flex items-center justify-center gap-2 transition-all"
+                  >
+                    <XCircle size={18} /> رفض العرض
+                  </button>
+                </div>
+              </div>
+            ))}
           </div>
-          <div className="flex-1 bg-white p-4 rounded-3xl shadow-sm border border-gray-100 border-emerald-100">
-            <label className="text-xs font-black text-emerald-600 mb-2 block">السعر المخفض (€)</label>
-            <div className="flex items-center gap-2 bg-emerald-50 p-3 rounded-2xl">
-              <DollarSign className="text-emerald-600" size={18} />
-              <input required type="number" step="0.01" placeholder="5.50" className="bg-transparent flex-1 text-sm outline-none font-black text-emerald-800" 
-                     onChange={(e) => setFormData({...formData, discounted_price: e.target.value})} />
-            </div>
-          </div>
-        </div>
-
-        {/* الصف الثالث: الكمية ووقت الاستلام */}
-        <div className="flex gap-4">
-          <div className="flex-1 bg-white p-4 rounded-3xl shadow-sm border border-gray-100">
-            <label className="text-xs font-black text-gray-400 mb-2 block">الكمية</label>
-            <div className="flex items-center gap-2 bg-gray-50 p-3 rounded-2xl">
-              <Package className="text-emerald-600" size={18} />
-              <input required type="number" placeholder="5" min="1" className="bg-transparent flex-1 text-sm outline-none font-bold" 
-                     onChange={(e) => setFormData({...formData, quantity: e.target.value})} />
-            </div>
-          </div>
-          <div className="flex-[2] bg-white p-4 rounded-3xl shadow-sm border border-gray-100">
-            <label className="text-xs font-black text-gray-400 mb-2 block">وقت الاستلام</label>
-            <div className="flex items-center gap-2 bg-gray-50 p-3 rounded-2xl">
-              <Clock className="text-emerald-600" size={18} />
-              <input required type="text" placeholder="18:00 - 21:00" className="bg-transparent flex-1 text-sm outline-none font-bold text-left" dir="ltr"
-                     onChange={(e) => setFormData({...formData, pickup_time: e.target.value})} value={formData.pickup_time} />
-            </div>
-          </div>
-        </div>
-
-        {/* الصف الرابع: الصورة */}
-        <div className="bg-white p-4 rounded-3xl shadow-sm border border-gray-100">
-          <label className="text-xs font-black text-gray-400 mb-2 block">رابط الصورة (اختياري)</label>
-          <div className="flex items-center gap-2 bg-gray-50 p-3 rounded-2xl">
-            <ImageIcon className="text-emerald-600" size={18} />
-            <input type="text" placeholder="https://..." className="bg-transparent flex-1 text-sm outline-none font-bold text-left" dir="ltr"
-                   onChange={(e) => setFormData({...formData, image_url: e.target.value})} />
-          </div>
-        </div>
-
-        <button type="submit" disabled={loading} className="w-full bg-emerald-800 hover:bg-emerald-700 text-white p-5 rounded-3xl font-black flex items-center justify-center gap-2 shadow-xl shadow-emerald-900/20 active:scale-95 transition-all mt-4">
-          {loading ? <Loader2 className="animate-spin" /> : <><PlusCircle size={22} /> إرسال العرض للإدارة</>}
-        </button>
-      </form>
+        )}
+      </div>
     </div>
   )
 }
