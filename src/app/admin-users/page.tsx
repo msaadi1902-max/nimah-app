@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react'
 import { createClient } from '@supabase/supabase-js'
 import { CheckCircle, Store, Clock, ShieldAlert, Loader2, UserCheck, ArrowRight, XCircle, ShieldCheck } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+import BottomNav from '@/components/BottomNav'
 
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
 
@@ -13,7 +14,6 @@ export default function AdminUsersPage() {
 
   const fetchMerchants = async () => {
     setLoading(true)
-    // نجلب كل من يحمل رتبة merchant لنتمكن من إدارتهم بالكامل
     const { data } = await supabase
       .from('profiles')
       .select('*')
@@ -42,9 +42,9 @@ export default function AdminUsersPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-20 text-right font-sans" dir="rtl">
+    <div className="min-h-screen bg-gray-50 pb-28 text-right font-sans" dir="rtl">
       
-      {/* الهيدر بتصميمك الأنيق مع إضافة زر الرجوع */}
+      {/* الهيدر */}
       <div className="bg-slate-900 text-white p-8 pt-12 pb-16 rounded-b-[50px] shadow-xl relative overflow-hidden mb-8">
         <div className="absolute top-0 right-0 w-40 h-40 bg-emerald-500/10 rounded-full -mr-20 -mt-20 blur-3xl"></div>
         <button onClick={() => router.back()} className="relative z-10 bg-white/10 p-2 rounded-xl mb-6 active:scale-95 transition-transform">
@@ -77,7 +77,6 @@ export default function AdminUsersPage() {
           <div className="space-y-5">
             {merchants.map((merchant) => (
               <div key={merchant.id} className="bg-white rounded-[35px] p-6 shadow-sm border border-gray-100 relative overflow-hidden group">
-                {/* شريط الحالة الذكي */}
                 <div className={`absolute top-0 left-0 w-2 h-full transition-colors ${merchant.is_approved ? 'bg-emerald-500' : 'bg-amber-400'}`}></div>
                 
                 <div className="flex justify-between items-start mb-6">
@@ -124,6 +123,7 @@ export default function AdminUsersPage() {
         )}
       </div>
 
+      {/* هنا كان الخطأ، قمت بإصلاحه بوضع سطر واحد فقط */}
       <BottomNav activeTab="profile" />
     </div>
   )
