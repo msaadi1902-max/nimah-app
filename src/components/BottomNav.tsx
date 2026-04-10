@@ -1,42 +1,70 @@
 'use client'
-import React from 'react'
-import Link from 'next/link'
-import { Home, Search, LayoutDashboard, Ticket, User } from 'lucide-react'
+import React, { useEffect, useState } from 'react'
+import { Home, Search, Ticket, User, Store, LogOut } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { createClient } from '@supabase/supabase-js'
 
-// أضفنا "favorites" هنا فقط لمنع الخطأ البرمجي من الظهور في الملفات القديمة
-interface BottomNavProps {
-  activeTab: 'home' | 'browse' | 'merchant' | 'tickets' | 'profile' | 'favorites'
-}
+const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
 
-export default function BottomNav({ activeTab }: BottomNavProps) {
+export default function BottomNav({ activeTab }: { activeTab: string }) {
+  const router = useRouter()
+  const [role, setRole] = useState<string | null>(null)
+
+  useEffect(() => {
+    // جلب نوع المستخدم من الكوكيز أو الذاكرة
+    const userRole = localStorage.getItem('user_role')
+    setRole(userRole)
+  }, [])
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut()
+    localStorage.removeItem('user_role')
+    document.cookie = "user_role=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;"
+    router.push('/welcome') // التوجه لصفحة الترحيب الصحيحة
+  }
+
   return (
-    <div className="fixed bottom-0 left-0 w-full bg-white border-t border-gray-100 px-6 py-3 flex justify-between items-center z-50 shadow-[0_-5px_15px_rgba(0,0,0,0.05)]" dir="rtl">
+    <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 px-6 py-3 flex justify-between items-center z-50">
       
-      <Link href="/" className={`flex flex-col items-center gap-1 transition-all active:scale-90 ${activeTab === 'home' ? 'text-emerald-800' : 'text-gray-400'}`}>
-        <Home size={24} className={activeTab === 'home' ? 'fill-emerald-50' : ''} />
-        <span className="text-[10px] font-black">الرئيسية</span>
-      </Link>
+      {/* زر الرئيسية - للجميع */}
+      <button onClick={() => router.push('/')} className={`flex flex-col items-center ${activeTab === 'home' ? 'text-emerald-600' : 'text-gray-400'}`}>
+        <Home size={24} />
+        <span className="text-[10px] font-bold mt-1">الرئيسية</span>
+      </button>
 
-      <Link href="/browse" className={`flex flex-col items-center gap-1 transition-all active:scale-90 ${activeTab === 'browse' ? 'text-emerald-800' : 'text-gray-400'}`}>
-        <Search size={24} className={activeTab === 'browse' ? 'fill-emerald-50' : ''} />
-        <span className="text-[10px] font-black">تصفح</span>
-      </Link>
+      {/* زر التصفح - للجميع */}
+      <button onClick={() => router.push('/browse')} className={`flex flex-col items-center ${activeTab === 'browse' ? 'text-emerald-600' : 'text-gray-400'}`}>
+        <Search size={24} />
+        <span className="text-[10px] font-bold mt-1">تصفح</span>
+      </button>
 
-      <Link href="/merchant" className={`flex flex-col items-center gap-1 transition-all active:scale-90 ${activeTab === 'merchant' ? 'text-emerald-800' : 'text-gray-400'}`}>
-        <LayoutDashboard size={24} className={activeTab === 'merchant' ? 'fill-emerald-50' : ''} />
-        <span className="text-[10px] font-black">التاجر</span>
-      </Link>
+      {/* زر التذاكر - يظهر للزبون فقط */}
+      {role === 'customer' && (
+        <button onClick={() => router.push('/tickets')} className={`flex flex-col items-center ${activeTab === 'tickets' ? 'text-emerald-600' : 'text-gray-400'}`}>
+          <Ticket size={24} />
+          <span className="text-[10px] font-bold mt-1">تذاكري</span>
+        </button>
+      )}
 
-      <Link href="/tickets" className={`flex flex-col items-center gap-1 transition-all active:scale-90 ${activeTab === 'tickets' ? 'text-emerald-800' : 'text-gray-400'}`}>
-        <Ticket size={24} className={activeTab === 'tickets' ? 'fill-emerald-50' : ''} />
-        <span className="text-[10px] font-black">تذاكري</span>
-      </Link>
+      {/* زر لوحة التحكم - يظهر للتاجر فقط */}
+      {role === 'merchant' && (
+        <button onClick={() => router.push('/merchant')} className={`flex flex-col items-center ${activeTab === 'merchant' ? 'text-emerald-600' : 'text-gray-400'}`}>
+          <Store size={24} />
+          <span className="text-[10px] font-bold mt-1">متجري</span>
+        </button>
+      )}
 
-      <Link href="/profile" className={`flex flex-col items-center gap-1 transition-all active:scale-90 ${activeTab === 'profile' ? 'text-emerald-800' : 'text-gray-400'}`}>
-        <User size={24} className={activeTab === 'profile' ? 'fill-emerald-50' : ''} />
-        <span className="text-[10px] font-black">حسابي</span>
-      </Link>
+      {/* زر حسابي - للجميع */}
+      <button onClick={() => router.push('/profile')} className={`flex flex-col items-center ${activeTab === 'profile' ? 'text-emerald-600' : 'text-gray-400'}`}>
+        <User size={24} />
+        <span className="text-[10px] font-bold mt-1">حسابي</span>
+      </button>
 
+      {/* زر خروج سريع (اختياري) */}
+      <button onClick={handleLogout} className="flex flex-col items-center text-rose-400">
+        <LogOut size={24} />
+        <span className="text-[10px] font-bold mt-1">خروج</span>
+      </button>
     </div>
   )
 }

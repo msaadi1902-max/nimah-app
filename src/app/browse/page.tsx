@@ -2,21 +2,21 @@
 import React, { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@supabase/supabase-js'
-import { Search, Map as MapIcon, List, SlidersHorizontal, Store, Utensils, ShoppingCart, Flower2, Clock } from 'lucide-react'
+import { Search, Map as MapIcon, List, SlidersHorizontal, Store, Utensils, ShoppingCart, Flower2, Clock, Loader2 } from 'lucide-react'
 import BottomNav from '@/components/BottomNav'
 
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
 
 const CATEGORIES = [
   { id: 'الكل', name: 'الكل', icon: Store },
-  { id: 'مطعم', name: 'مطاعم', icon: Utensils },
-  { id: 'ماركت', name: 'سوبر ماركت', icon: ShoppingCart },
-  { id: 'مخبز', name: 'مخابز', icon: Store },
-  { id: 'ورد', name: 'زهور وهدايا', icon: Flower2 },
+  { id: 'مطاعم', name: 'مطاعم', icon: Utensils },
+  { id: 'بقالة', name: 'سوبر ماركت', icon: ShoppingCart },
+  { id: 'مخابز', name: 'مخابز', icon: Store },
+  { id: 'حلويات', name: 'حلويات', icon: Flower2 },
 ]
 
 export default function BrowsePage() {
-  const [view, setView] = useState<'map' | 'list'>('list') // جعلنا القائمة هي الافتراضية
+  const [view, setView] = useState<'map' | 'list'>('list')
   const [items, setItems] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [activeCategory, setActiveCategory] = useState('الكل')
@@ -35,7 +35,10 @@ export default function BrowsePage() {
   }
 
   useEffect(() => {
-    fetchItems()
+    const delayDebounceFn = setTimeout(() => {
+      fetchItems()
+    }, 300) // تأخير بسيط للبحث لتحسين الأداء
+    return () => clearTimeout(delayDebounceFn)
   }, [activeCategory, searchQuery])
 
   return (
@@ -60,11 +63,11 @@ export default function BrowsePage() {
           </div>
         </div>
 
-        {/* زر التبديل بين خريطة وقائمة (تصميمك القديم الرائع) */}
+        {/* زر التبديل بين خريطة وقائمة */}
         <div className="flex bg-gray-100 rounded-2xl p-1 relative">
           <div
             className={`absolute top-1 bottom-1 w-[calc(50%-4px)] bg-emerald-800 rounded-xl transition-all duration-300 ease-in-out shadow-sm ${
-              view === 'map' ? 'right-1' : 'right-[calc(50%+3px)]'
+              view === 'map' ? 'right-1' : 'left-1'
             }`}
           ></div>
           <button onClick={() => setView('map')} className={`flex-1 flex justify-center items-center gap-2 py-3 text-sm font-black z-10 transition-colors ${view === 'map' ? 'text-white' : 'text-gray-500'}`}>
@@ -76,22 +79,15 @@ export default function BrowsePage() {
         </div>
       </div>
 
-      {/* محتوى الصفحة */}
       <div className="w-full">
         {view === 'map' ? (
-          // عرض الخريطة
-          <div className="relative w-full h-[calc(100vh-240px)] bg-emerald-50 overflow-hidden">
+          <div className="relative w-full h-[calc(100vh-300px)] bg-emerald-50 overflow-hidden rounded-b-3xl">
             <img src="https://images.unsplash.com/photo-1524661135-423995f22d0b?q=80&w=1000&auto=format&fit=crop" className="w-full h-full object-cover opacity-50 grayscale" alt="Map" />
-            <div className="absolute top-[30%] right-[25%] bg-emerald-800 text-white w-12 h-12 rounded-full flex items-center justify-center font-black border-[3px] border-white shadow-xl">5</div>
-            <div className="absolute top-[50%] right-[60%] bg-emerald-800 text-white w-10 h-10 rounded-full flex items-center justify-center font-black border-[3px] border-white shadow-xl">2</div>
-            <div className="absolute top-[45%] right-[40%] w-6 h-6 bg-blue-500 rounded-full border-4 border-white shadow-md relative">
-               <div className="absolute -inset-2 bg-blue-500/30 rounded-full animate-ping"></div>
-            </div>
+            <div className="absolute top-[30%] right-[25%] bg-emerald-800 text-white w-12 h-12 rounded-full flex items-center justify-center font-black border-[3px] border-white shadow-xl animate-bounce">5</div>
+            <div className="absolute top-[50%] right-[60%] bg-emerald-800 text-white w-10 h-10 rounded-full flex items-center justify-center font-black border-[3px] border-white shadow-xl animate-pulse">2</div>
           </div>
         ) : (
-          // عرض القائمة (سوق الجميع)
-          <div className="animate-in fade-in duration-300">
-            {/* شريط التصنيفات */}
+          <div>
             <div className="px-4 py-4 flex gap-3 overflow-x-auto hide-scrollbar">
               {CATEGORIES.map((cat) => {
                 const Icon = cat.icon
@@ -111,39 +107,43 @@ export default function BrowsePage() {
               })}
             </div>
 
-            {/* شبكة المنتجات المعتمدة */}
             <div className="p-4 pt-0">
               {loading ? (
-                <div className="flex justify-center py-20 text-emerald-600 font-bold animate-pulse">جاري البحث... 🔍</div>
+                <div className="flex flex-col items-center py-20 text-emerald-600">
+                  <Loader2 className="animate-spin mb-2" size={32} />
+                  <span className="font-bold">جاري البحث...</span>
+                </div>
               ) : items.length === 0 ? (
-                <div className="text-center bg-white p-10 rounded-[30px] border border-gray-100 mt-4">
+                <div className="text-center bg-white p-10 rounded-[30px] border border-gray-100 mt-4 shadow-sm">
                   <Search size={40} className="mx-auto text-gray-300 mb-3" />
-                  <p className="text-gray-500 font-bold text-sm">لم نجد أي منتجات تطابق بحثك حالياً.</p>
+                  <p className="text-gray-500 font-bold text-sm">لم نجد أي عروض تطابق بحثك حالياً.</p>
                 </div>
               ) : (
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-4 pb-10">
                   {items.map((item) => (
-                    <Link href={`/offer/${item.id}`} key={item.id} className="bg-white rounded-3xl overflow-hidden shadow-sm border border-gray-100 active:scale-[0.98] transition-transform">
+                    <div key={item.id} className="bg-white rounded-3xl overflow-hidden shadow-sm border border-gray-100 active:scale-[0.98] transition-transform flex flex-col">
                       <div className="h-32 relative bg-gray-100">
                         <img src={item.image_url} alt={item.name} className="w-full h-full object-cover" />
                         <div className="absolute top-2 right-2 bg-rose-500 text-white px-2 py-1 rounded-xl text-[10px] font-black shadow-sm">
-                          -{(100 - (item.discounted_price / item.original_price * 100)).toFixed(0)}%
+                          -{Math.round(100 - (item.discounted_price / item.original_price * 100))}%
                         </div>
                       </div>
-                      <div className="p-3">
-                        <p className="text-[9px] font-black text-emerald-600 mb-1">{item.category}</p>
-                        <h3 className="font-black text-sm text-gray-900 leading-tight mb-2 truncate">{item.name}</h3>
-                        <div className="flex justify-between items-end">
+                      <div className="p-3 flex-1 flex flex-col justify-between">
+                        <div>
+                          <p className="text-[9px] font-black text-emerald-600 mb-1">{item.category}</p>
+                          <h3 className="font-black text-sm text-gray-900 leading-tight mb-2 line-clamp-2">{item.name}</h3>
+                        </div>
+                        <div className="flex justify-between items-end mt-2">
                           <div>
                             <span className="block text-gray-400 text-[10px] line-through font-bold">{item.original_price} €</span>
                             <span className="font-black text-emerald-700 text-base">{item.discounted_price} €</span>
                           </div>
-                          <div className="bg-gray-50 p-1.5 rounded-lg text-gray-500">
+                          <div className="bg-gray-50 p-1.5 rounded-lg text-gray-500 border border-gray-100">
                             <Clock size={14} />
                           </div>
                         </div>
                       </div>
-                    </Link>
+                    </div>
                   ))}
                 </div>
               )}
