@@ -2,28 +2,49 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
 export function middleware(request: NextRequest) {
-  // 1. جلب "دور المستخدم" من الكوكيز (Cookies)
-  const role = request.cookies.get('user_role')?.value
+  const path = request.nextUrl.pathname
 
-  // 2. إذا كان المستخدم في صفحة الترحيب، اتركه يكمل
-  if (request.nextUrl.pathname === '/welcome') {
-    return NextResponse.next()
+  // 1. تحديد ما هي المسارات (الغرف) المحمية في التطبيق
+  const isMerchantRoute = path.startsWith('/merchant') || path.startsWith('/merchant-orders')
+  const isCustomerRoute = path.startsWith('/tickets')
+  const isAdminRoute = path.startsWith('/admin-') // مسارات الإدارة مثل admin-meals
+
+  // 2. فحص "بطاقة الهوية" (الكوكيز) التي أعطيناها للمستخدم في صفحة الترحيب
+  const userRole = request.cookies.get('user_role')?.value
+
+  // --- القواعد الأمنية (قرارات الحارس) ---
+
+  // أ) إذا شخص غريب (لا يملك بطاقة هوية) يحاول التسلل لغرف التجار أو الزبائن
+  if (!userRole && (isMerchantRoute || isCustomerRoute)) {
+    return NextResponse.redirect(new URL('/welcome', request.url)) // اطرده لصفحة الترحيب
   }
 
-  // 3. إذا لم يحدد دوره بعد (لا يوجد كوكيز)، وجهه لصفحة الترحيب فوراً
-  if (!role) {
-    return NextResponse.redirect(new URL('/welcome', request.url))
+  // ب) إذا كان "زبون" ويحاول التسلل للوحة تحكم "التاجر" أو "طلبات التاجر"
+  if (isMerchantRoute && userRole === 'customer') {
+    return NextResponse.redirect(new URL('/', request.url)) // أعده للمتجر الرئيسي (الصفحة الرئيسية)
   }
 
+  // ج) إذا كان "تاجر" ويحاول التسلل لصفحة "تذاكر الزبائن"
+  if (isCustomerRoute && userRole === 'merchant') {
+    return NextResponse.redirect(new URL('/merchant', request.url)) // أعده للوحة تحكمه
+  }
+
+  // د) حماية مسارات الإدارة (لا يدخلها إلا الأدمن - حالياً سنمنع الزبائن والتجار منها)
+  if (isAdminRoute && userRole !== 'admin') {
+    // ملاحظة: يمكنك تعطيل هذا السطر مؤقتاً إذا كنت تختبر الإدارة بنفسك
+    // return NextResponse.redirect(new URL('/', request.url))
+  }
+
+  // إذا كانت كل أموره سليمة، اسمح له بالمرور
   return NextResponse.next()
 }
 
-// تحديد الصفحات التي ينطبق عليها هذا "الحارس"
+// هذه الميزة لتسريع أداء الحارس (نخبره أين يقف فقط بدلاً من تفتيش كل شيء)
 export const config = {
   matcher: [
-    /*
-     * استثناء الملفات الثابتة (صور، أيقونات) وتطبيقها على كل المسارات الأخرى
-     */
-    '/((?!api|_next/static|_next/image|favicon.ico).*)',
-  ],
+    '/merchant/:path*', 
+    '/merchant-orders/:path*', 
+    '/tickets/:path*',
+    '/admin-:path*'
+  ]
 }
