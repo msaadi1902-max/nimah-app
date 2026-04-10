@@ -50,7 +50,7 @@ export default function TicketsPage() {
           </h1>
           <div className="w-10"></div>
         </div>
-        <p className="text-emerald-200 text-sm font-bold text-center">أبرز هذه التذاكر للمطعم عند الاستلام</p>
+        <p className="text-emerald-200 text-sm font-bold text-center">أبرز هذه التذكرة للمطعم عند الاستلام</p>
       </div>
 
       {/* قائمة التذاكر */}
@@ -64,13 +64,13 @@ export default function TicketsPage() {
             <Ticket size={50} className="mx-auto text-gray-300 mb-4" />
             <h3 className="font-black text-gray-900 text-lg mb-2">لا توجد تذاكر حالياً</h3>
             <p className="text-gray-500 font-bold text-sm mb-6">ابدأ بإنقاذ وجبتك الأولى الآن!</p>
-            <button onClick={() => router.push('/')} className="bg-emerald-100 text-emerald-800 px-6 py-3 rounded-2xl font-black">
+            <button onClick={() => router.push('/browse')} className="bg-emerald-100 text-emerald-800 px-6 py-3 rounded-2xl font-black">
               تصفح العروض
             </button>
           </div>
         ) : (
           orders.map((order) => (
-            // تصميم التذكرة
+            // تصميم التذكرة الساحر
             <div key={order.id} className="bg-white rounded-[30px] shadow-md overflow-hidden border border-gray-100 relative">
               {/* الدوائر الجانبية لتعطي شكل التذكرة */}
               <div className="absolute top-1/2 -left-4 w-8 h-8 bg-gray-50 rounded-full -translate-y-1/2 border-r border-gray-100"></div>
@@ -90,14 +90,17 @@ export default function TicketsPage() {
                 <div className="flex items-center gap-4 mt-6">
                   <div className="flex items-center gap-2 text-gray-600 font-bold text-xs">
                     <Clock size={16} className="text-gray-400" />
-                    <span>وقت الاستلام المعتاد</span>
+                    <span>وقت الاستلام: {order.status === 'pending' ? 'في موعد المطعم' : 'تم الاستلام'}</span>
                   </div>
                 </div>
               </div>
               
               <div className="p-4 bg-gray-50/50 flex justify-between items-center">
-                <span className="text-xs font-black text-gray-500">رقم الطلب: #{order.id}</span>
-                <span className="font-black text-xl text-emerald-800">{order.price} €</span>
+                {/* هنا التعديل: رقم الطلب قصير للتاجر */}
+                <span className="text-sm font-black text-gray-500">
+                  الطلب: <span className="text-gray-900 tracking-widest text-lg">#{String(order.id).substring(0, 5).toUpperCase()}</span>
+                </span>
+                <span className="font-black text-2xl text-emerald-800">{order.price} €</span>
               </div>
             </div>
           ))
