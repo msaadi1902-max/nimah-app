@@ -1,82 +1,192 @@
 'use client'
 import React, { useEffect, useState } from 'react'
-import Link from 'next/link'
 import { createClient } from '@supabase/supabase-js'
-import { MapPin, Star, ShoppingBag, Flame, ShieldCheck } from 'lucide-react'
+import { Search, MapPin, Clock, ShoppingBag, Flame, Loader2, Store } from 'lucide-react'
+import { useRouter } from 'next/navigation'
 import BottomNav from '@/components/BottomNav'
 
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
 
-export default function HomePage() {
-  const [featuredMeals, setFeaturedMeals] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
+// قائمة التصنيفات المتاحة
+const CATEGORIES = ['الكل', 'مطاعم', 'مخابز', 'حلويات', 'بقالة']
 
-  const fetchFeatured = async () => {
-    // 🎯 جلب فقط العروض التي وافقت عليها (Approved) واخترتها للرئيسية (Featured)
-    const { data } = await supabase
+export default function HomePage() {
+  const [meals, setMeals] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [bookingId, setBookingId] = useState<number | null>(null)
+  const [selectedCategory, setSelectedCategory] = useState('الكل')
+  const router = useRouter()
+
+  useEffect(() => {
+    fetchMeals()
+  }, [selectedCategory]) // إعادة الجلب كلما تغير التصنيف
+
+  const fetchMeals = async () => {
+    setLoading(true)
+    
+    // بناء الطلب من قاعدة البيانات: (موافق عليها + كميتها أكبر من 0)
+    let query = supabase
       .from('meals')
       .select('*')
-      .eq('is_approved', true) 
-      .eq('is_featured', true) 
+      .eq('is_approved', true)
+      .gt('quantity', 0)
       .order('id', { ascending: false })
-    
-    if (data) setFeaturedMeals(data)
+
+    // فلترة حسب التصنيف إذا لم يكن "الكل"
+    if (selectedCategory !== 'الكل') {
+      query = query.eq('category', selectedCategory)
+    }
+
+    const { data } = await query
+    if (data) setMeals(data)
     setLoading(false)
   }
 
-  useEffect(() => {
-    fetchFeatured()
-  }, [])
+  const handleReserve = async (meal: any) => {
+    setBookingId(meal.id) // لتشغيل أيقونة التحميل على الزر
+    
+    try {
+      // 1. التأكد من تسجيل الدخول
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        alert("يرجى تسجيل الدخول كزبون أولاً لحجز الوجبة.")
+        router.push('/welcome')
+        return
+      }
+
+      // 2. تسجيل الطلب في جدول Orders
+      const { error: orderError } = await supabase.from('orders').insert([{
+        customer_email: user.email,
+        meal_name: meal.name,
+        price: meal.discounted_price,
+        status: 'pending',
+        merchant_id: meal.merchant_id || 'unknown'
+      }])
+
+      if (orderError) throw orderError
+
+      // 3. إنقاص الكمية المتاحة بـ 1
+      const newQuantity = meal.quantity - 1
+      await supabase.from('meals').update({ quantity: newQuantity }).eq('id', meal.id)
+
+      // 4. توجيه الزبون لصفحة التذاكر بنجاح
+      router.push('/tickets')
+
+    } catch (error: any) {
+      alert("حدث خطأ أثناء الحجز: " + error.message)
+      setBookingId(null)
+    }
+  }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-32 text-right font-sans" dir="rtl">
+    <div className="min-h-screen bg-gray-50 pb-28 text-right font-sans" dir="rtl">
       
-      {/* هيدر الواجهة المدفوعة */}
-      <div className="bg-white pt-12 pb-6 px-6 sticky top-0 z-50 border-b border-emerald-50 shadow-sm">
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-1 text-emerald-700 font-black italic">
-            <ShieldCheck size={18} /> نِعمة بريميوم
+      {/* الهيدر وشريط البحث */}
+      <div className="bg-emerald-600 px-6 pt-12 pb-6 rounded-b-[40px] shadow-lg relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-40 h-40 bg-white/10 rounded-full -mr-20 -mt-20 blur-2xl"></div>
+        
+        <div className="flex justify-between items-center mb-6 text-white relative z-10">
+          <div>
+            <p className="text-xs font-bold text-emerald-100 mb-1">موقعك الحالي</p>
+            <h1 className="text-sm font-black flex items-center gap-1">
+              <MapPin size={16} /> دمشق، الميدان
+            </h1>
           </div>
-          <div className="text-xs font-bold text-gray-400">فيينا، النمسا</div>
+          <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-sm">
+            <ShoppingBag size={20} />
+          </div>
         </div>
-        <h1 className="text-xl font-black text-gray-900">أفضل العروض المختارة لك 🏆</h1>
+
+        <div className="relative z-10">
+          <input 
+            type="text" 
+            placeholder="ابحث عن وجبة، مطعم..." 
+            className="w-full bg-white/95 rounded-2xl py-4 pr-12 pl-4 text-sm font-bold text-gray-900 focus:outline-none shadow-sm"
+          />
+          <Search size={20} className="absolute right-4 top-4 text-emerald-600" />
+        </div>
       </div>
 
-      <div className="p-5">
+      {/* شريط الفلاتر (التصنيفات) */}
+      <div className="px-6 mt-6 overflow-x-auto hide-scrollbar">
+        <div className="flex gap-3 w-max pb-2">
+          {CATEGORIES.map((cat) => (
+            <button
+              key={cat}
+              onClick={() => setSelectedCategory(cat)}
+              className={`px-6 py-2.5 rounded-full text-sm font-black transition-all shadow-sm border ${
+                selectedCategory === cat 
+                  ? 'bg-gray-900 text-white border-gray-900' 
+                  : 'bg-white text-gray-500 border-gray-100 hover:bg-emerald-50'
+              }`}
+            >
+              {cat}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* قسم العروض */}
+      <div className="p-6">
+        <h2 className="text-lg font-black text-gray-900 mb-4 flex items-center gap-2">
+          <Flame size={20} className="text-rose-500" /> عروض التوفير ({selectedCategory})
+        </h2>
+
         {loading ? (
-          <div className="py-20 text-center animate-pulse text-emerald-600 font-bold italic">جاري تحضير قائمة النخبة...</div>
-        ) : featuredMeals.length === 0 ? (
-          /* رسالة تظهر عندما لا يكون هناك عروض وافقت عليها بعد */
-          <div className="text-center bg-white p-12 rounded-[40px] shadow-sm border-2 border-dashed border-gray-100 mt-4">
-             <ShoppingBag size={50} className="mx-auto text-gray-200 mb-4" />
-             <h3 className="font-black text-gray-900 mb-2 text-lg">لا يوجد عروض مميزة حالياً</h3>
-             <p className="text-gray-400 font-bold text-sm leading-relaxed">بمجرد موافقة الإدارة على العروض الجديدة، ستظهر هنا فوراً.</p>
+          <div className="flex justify-center items-center py-20 text-emerald-600">
+            <Loader2 className="animate-spin w-10 h-10" />
+          </div>
+        ) : meals.length === 0 ? (
+          <div className="text-center bg-white p-10 rounded-[35px] border border-gray-100 shadow-sm mt-4">
+            <Store size={40} className="mx-auto text-gray-300 mb-4" />
+            <p className="text-gray-900 font-black text-lg mb-1">لا يوجد عروض هنا!</p>
+            <p className="text-gray-500 font-bold text-xs">جرب تصنيفاً آخر أو عد لاحقاً.</p>
           </div>
         ) : (
-          /* عرض العروض المعتمدة فقط */
-          <div className="space-y-8">
-            {featuredMeals.map((meal) => (
-              <Link href={`/offer/${meal.id}`} key={meal.id} className="block group relative bg-white rounded-[45px] shadow-xl shadow-emerald-900/5 overflow-hidden border border-emerald-50 transition-all active:scale-[0.98]">
-                <div className="h-72 overflow-hidden relative">
-                  <img src={meal.image_url} alt={meal.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
-                  <div className="absolute top-5 left-5 bg-emerald-600 text-white px-4 py-2 rounded-2xl font-black text-[10px] shadow-lg flex items-center gap-1">
-                    <Star size={12} fill="currentColor" /> عرض موثق
+          <div className="space-y-5">
+            {meals.map((meal) => (
+              <div key={meal.id} className="bg-white rounded-[30px] overflow-hidden shadow-sm border border-gray-100 relative group">
+                {/* علامة الخصم */}
+                <div className="absolute top-4 right-4 z-10 bg-rose-500 text-white text-[10px] font-black px-3 py-1.5 rounded-full shadow-lg flex items-center gap-1">
+                  <Flame size={12} />
+                  وفر {Math.round(((meal.original_price - meal.discounted_price) / meal.original_price) * 100)}%
+                </div>
+                
+                <div className="h-40 bg-gray-200 relative overflow-hidden">
+                  <img src={meal.image_url || 'https://via.placeholder.com/400x200?text=No+Image'} alt={meal.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                </div>
+                
+                <div className="p-5">
+                  <div className="flex justify-between items-start mb-2">
+                    <div>
+                      <h3 className="text-lg font-black text-gray-900 mb-1">{meal.name}</h3>
+                      <p className="text-[10px] font-black text-emerald-600 bg-emerald-50 px-2 py-1 rounded-lg inline-block">{meal.category}</p>
+                    </div>
+                    <p className="text-xs font-bold text-gray-400 line-through mt-1">{meal.original_price} €</p>
+                  </div>
+                  
+                  <div className="flex justify-between items-center mb-5 mt-4">
+                    <p className="text-xs text-gray-500 font-bold flex items-center gap-1 bg-gray-50 px-3 py-1.5 rounded-xl border border-gray-100">
+                      <Clock size={12} className="text-emerald-500" /> {meal.pickup_time}
+                    </p>
+                    <p className="text-2xl font-black text-gray-900">{meal.discounted_price} €</p>
+                  </div>
+
+                  <div className="flex gap-3 items-center">
+                    <button 
+                      onClick={() => handleReserve(meal)}
+                      disabled={bookingId === meal.id}
+                      className="flex-1 bg-emerald-600 text-white py-4 rounded-2xl text-sm font-black active:scale-95 transition-all shadow-lg shadow-emerald-600/20 disabled:opacity-70 flex justify-center items-center gap-2"
+                    >
+                      {bookingId === meal.id ? <Loader2 className="animate-spin" size={18} /> : 'احجز الآن'}
+                    </button>
+                    <div className="bg-orange-50 text-orange-600 px-4 py-4 rounded-2xl text-xs font-black border border-orange-100 text-center flex flex-col justify-center min-w-[70px]">
+                      <span className="text-[10px] opacity-70">باقي</span>
+                      <span className="text-lg leading-none">{meal.quantity}</span>
+                    </div>
                   </div>
                 </div>
-                <div className="p-7">
-                   <div className="flex justify-between items-center mb-4">
-                      <span className="text-[10px] font-black text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full uppercase tracking-tighter">{meal.category}</span>
-                      <div className="flex items-center gap-1 text-amber-500 font-black text-sm italic">
-                         وفّر {(100 - (meal.discounted_price / meal.original_price * 100)).toFixed(0)}%
-                      </div>
-                   </div>
-                   <h3 className="text-2xl font-black text-gray-900 mb-3">{meal.name}</h3>
-                   <div className="flex items-center gap-3">
-                      <span className="text-3xl font-black text-emerald-800">{meal.discounted_price} €</span>
-                      <span className="text-lg text-gray-300 line-through font-bold opacity-70">{meal.original_price} €</span>
-                   </div>
-                </div>
-              </Link>
+              </div>
             ))}
           </div>
         )}

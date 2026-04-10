@@ -1,59 +1,78 @@
 'use client'
-import React from 'react'
+import React, { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { ShoppingBasket, Store } from 'lucide-react'
+import { User, Store, ArrowLeft, CheckCircle2 } from 'lucide-react'
 
 export default function WelcomePage() {
   const router = useRouter()
+  const [role, setRole] = useState<'customer' | 'merchant' | null>(null)
 
-  // هذه هي الدالة التي قمنا بتطويرها لتعمل مع الحارس (Middleware)
-  const selectRole = (role: 'customer' | 'merchant') => {
-    // 1. حفظ الاختيار في "الكوكيز" (ضروري جداً لفتح بوابة الحارس)
-    document.cookie = `user_role=${role}; path=/; max-age=31536000; SameSite=Lax`; 
+  const handleContinue = () => {
+    if (!role) return;
+
+    // 1. حفظ الاختيار في "الكوكيز" ليعمل الحارس (Middleware) الخاص بك بشكل صحيح
+    document.cookie = `user_role=${role}; path=/; max-age=31536000; SameSite=Lax`;
     
-    // 2. حفظ الاختيار في "الذاكرة المحلية" (للتنسيقات الداخلية)
-    localStorage.setItem('user_role', role) 
+    // 2. حفظ الاختيار في "الذاكرة المحلية"
+    localStorage.setItem('user_role', role);
 
-    // 3. التوجيه التلقائي
-    if (role === 'merchant') {
-      router.push('/profile') // صاحب المحل يذهب للوحة تحكمه
-    } else {
-      router.push('/') // الزبون يذهب للمتجر
-    }
+    // 3. التوجيه لصفحة الإيميل والباسورد مع نقل نوع الحساب
+    router.push(`/auth?role=${role}`)
   }
 
   return (
-    <div className="min-h-screen bg-white flex flex-col items-center justify-center p-6 text-right" dir="rtl">
-      <div className="mb-12 text-center">
-        <h1 className="text-5xl font-black text-emerald-600 mb-3 italic">نِعمة 🌿</h1>
-        <p className="text-gray-500 font-bold text-lg">أهلاً بك.. كيف تود البدء اليوم؟</p>
+    <div className="min-h-screen bg-white font-sans text-right p-6 flex flex-col justify-between" dir="rtl">
+      
+      <div className="pt-10 text-center">
+        <div className="w-20 h-20 bg-emerald-600 rounded-[25px] flex items-center justify-center mx-auto mb-6 shadow-lg shadow-emerald-100">
+          <span className="text-white text-3xl font-black italic">ن</span>
+        </div>
+        <h1 className="text-3xl font-black text-gray-900 mb-2">مرحباً بك في نِعمة</h1>
+        <p className="text-gray-500 font-bold text-sm">اختر نوع حسابك للبدء في إنقاذ الطعام</p>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 w-full max-w-sm">
-        {/* بطاقة الزبون */}
+      <div className="space-y-4">
+        {/* خيار الزبون */}
         <button 
-          onClick={() => selectRole('customer')}
-          className="group p-8 rounded-[40px] border-2 border-gray-100 hover:border-emerald-500 hover:bg-emerald-50 transition-all text-center relative shadow-sm"
+          onClick={() => setRole('customer')}
+          className={`w-full p-6 rounded-[30px] border-2 transition-all flex items-center gap-4 ${role === 'customer' ? 'border-emerald-600 bg-emerald-50' : 'border-gray-100 bg-gray-50'}`}
         >
-          <div className="bg-emerald-100 w-16 h-16 rounded-3xl flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform">
-            <ShoppingBasket className="text-emerald-600" size={32} />
+          <div className={`p-3 rounded-2xl ${role === 'customer' ? 'bg-emerald-600 text-white' : 'bg-white text-gray-400'}`}>
+            <User size={28} />
           </div>
-          <h2 className="font-black text-2xl text-gray-800">أنا زبون 🛒</h2>
-          <p className="text-sm text-gray-500 mt-2">أبحث عن وجبات طازجة بأفضل الأسعار</p>
+          <div className="flex-1 text-right">
+            <h3 className={`font-black text-lg ${role === 'customer' ? 'text-emerald-900' : 'text-gray-900'}`}>أنا زبون</h3>
+            <p className="text-xs text-gray-500 font-bold">أبحث عن وجبات بأسعار مخفضة</p>
+          </div>
+          {role === 'customer' && <CheckCircle2 className="text-emerald-600" />}
         </button>
 
-        {/* بطاقة صاحب المحل */}
+        {/* خيار التاجر */}
         <button 
-          onClick={() => selectRole('merchant')}
-          className="group p-8 rounded-[40px] border-2 border-gray-100 hover:border-orange-500 hover:bg-orange-50 transition-all text-center shadow-sm"
+          onClick={() => setRole('merchant')}
+          className={`w-full p-6 rounded-[30px] border-2 transition-all flex items-center gap-4 ${role === 'merchant' ? 'border-emerald-600 bg-emerald-50' : 'border-gray-100 bg-gray-50'}`}
         >
-          <div className="bg-orange-100 w-16 h-16 rounded-3xl flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform">
-            <Store className="text-orange-600" size={32} />
+          <div className={`p-3 rounded-2xl ${role === 'merchant' ? 'bg-emerald-600 text-white' : 'bg-white text-gray-400'}`}>
+            <Store size={28} />
           </div>
-          <h2 className="font-black text-2xl text-gray-900">أنا صاحب عمل 🏪</h2>
-          <p className="text-sm text-gray-500 mt-2">أريد إدارة مبيعاتي وتقليل الهدر</p>
+          <div className="flex-1 text-right">
+            <h3 className={`font-black text-lg ${role === 'merchant' ? 'text-emerald-900' : 'text-gray-900'}`}>أنا صاحب مطعم</h3>
+            <p className="text-xs text-gray-500 font-bold">أود بيع فائض الطعام</p>
+          </div>
+          {role === 'merchant' && <CheckCircle2 className="text-emerald-600" />}
         </button>
       </div>
+
+      <div className="pb-10">
+        <button 
+          onClick={handleContinue}
+          disabled={!role}
+          className="w-full bg-gray-900 text-white py-5 rounded-[25px] font-black text-lg shadow-xl shadow-gray-200 active:scale-95 transition-all disabled:opacity-30 flex items-center justify-center gap-2"
+        >
+          استمرار <ArrowLeft size={20} />
+        </button>
+      </div>
+
     </div>
   )
 }
