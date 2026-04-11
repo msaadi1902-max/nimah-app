@@ -1,14 +1,8 @@
 import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
-  typescript: {
-    ignoreBuildErrors: true,
-  },
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
   experimental: {
-    webpackBuildWorker: false,
+    webpackBuildWorker: false, // هذا السطر يحمي Vercel من الانهيار
   }
 };
 

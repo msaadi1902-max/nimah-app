@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
-// هنا نستدعي السحابة التي صنعتها أنت للتو
+// هنا نستدعي السحابة التي صنعتها
 import { CartProvider } from "./context/CartContext";
 import UserRoleGate from "@/components/UserRoleGate";
 
@@ -31,6 +31,17 @@ export default function RootLayout({
         <CartProvider>
           <UserRoleGate>{children}</UserRoleGate>
         </CartProvider>
+        
+        {/* سكريبت تفعيل تطبيق الهاتف PWA */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.register('/sw.js');
+              }
+            `,
+          }}
+        />
       </body>
     </html>
   );
