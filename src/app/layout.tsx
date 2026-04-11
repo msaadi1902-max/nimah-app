@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 // هنا نستدعي السحابة التي صنعتها أنت للتو
@@ -7,9 +7,16 @@ import UserRoleGate from "@/components/UserRoleGate";
 
 const inter = Inter({ subsets: ["latin"] });
 
+// 1. إعدادات الهوية الأساسية وملف الـ PWA
 export const metadata: Metadata = {
   title: "تطبيق نعمة",
   description: "أنقذ وجبة، وفر مالك",
+  manifest: "/manifest.json",
+};
+
+// 2. لون شريط الهاتف من الأعلى
+export const viewport: Viewport = {
+  themeColor: "#059669",
 };
 
 export default function RootLayout({
