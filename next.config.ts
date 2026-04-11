@@ -9,12 +9,15 @@ const withPWA = withPWAInit({
 });
 
 const nextConfig: NextConfig = {
-  // تم تجاهل أخطاء التايب سكريبت أثناء الرفع لضمان عدم توقف Vercel
   typescript: {
     ignoreBuildErrors: true,
   },
   eslint: {
     ignoreDuringBuilds: true,
+  },
+  experimental: {
+    // هذا السطر هو الحل السحري الذي سيمنع Vercel من الانهيار (WorkerError)
+    webpackBuildWorker: false,
   }
 };
 
