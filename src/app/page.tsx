@@ -7,7 +7,8 @@ import BottomNav from '@/components/BottomNav'
 
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
 
-const CATEGORIES = ['الكل', 'مطاعم', 'مخابز', 'حلويات', 'بقالة']
+// تم توسعة الأقسام لتشمل السوق المتكامل
+const CATEGORIES = ['الكل', 'مطاعم', 'مخابز', 'حلويات', 'بقالة', 'ألبسة', 'عطور', 'عصرونية', 'موبايلات', 'أثاث']
 
 export default function HomePage() {
   const [meals, setMeals] = useState<any[]>([])
@@ -43,7 +44,7 @@ export default function HomePage() {
     try {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) {
-        alert("يرجى تسجيل الدخول كزبون أولاً لحجز الوجبة.")
+        alert("يرجى تسجيل الدخول كزبون أولاً لحجز العرض.")
         router.push('/welcome')
         return
       }
@@ -81,7 +82,6 @@ export default function HomePage() {
               <MapPin size={16} /> دمشق، الميدان
             </h1>
           </div>
-          {/* تم إصلاح زر السلة هنا */}
           <button onClick={() => router.push('/cart')} className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-sm active:scale-95 transition-transform">
             <ShoppingBag size={20} />
           </button>
@@ -90,7 +90,7 @@ export default function HomePage() {
         <div className="relative z-10">
           <input 
             type="text" 
-            placeholder="ابحث عن وجبة، مطعم..." 
+            placeholder="ابحث عن منتج، متجر..." 
             className="w-full bg-white/95 rounded-2xl py-4 pr-12 pl-4 text-sm font-bold text-gray-900 focus:outline-none shadow-sm"
           />
           <Search size={20} className="absolute right-4 top-4 text-emerald-600" />
@@ -127,7 +127,7 @@ export default function HomePage() {
         ) : meals.length === 0 ? (
           <div className="text-center bg-white p-10 rounded-[35px] border border-gray-100 shadow-sm mt-4">
             <Store size={40} className="mx-auto text-gray-300 mb-4" />
-            <p className="text-gray-900 font-black text-lg mb-1">لا يوجد عروض هنا!</p>
+            <p className="text-gray-900 font-black text-lg mb-1">لا توجد عروض هنا!</p>
             <p className="text-gray-500 font-bold text-xs">جرب تصنيفاً آخر أو عد لاحقاً.</p>
           </div>
         ) : (
@@ -136,7 +136,8 @@ export default function HomePage() {
               <div key={meal.id} className="bg-white rounded-[30px] overflow-hidden shadow-sm border border-gray-100 relative group">
                 <div className="absolute top-4 right-4 z-10 bg-rose-500 text-white text-[10px] font-black px-3 py-1.5 rounded-full shadow-lg flex items-center gap-1">
                   <Flame size={12} />
-                  وفر {Math.round(((meal.original_price - meal.discounted_price) / meal.original_price) * 100)}%
+                  {/* تم حل مشكلة Infinity هنا */}
+                  وفر {meal.original_price > 0 ? Math.round(((meal.original_price - meal.discounted_price) / meal.original_price) * 100) : 0}%
                 </div>
                 
                 <div className="h-40 bg-gray-200 relative overflow-hidden">
@@ -154,7 +155,7 @@ export default function HomePage() {
                   
                   <div className="flex justify-between items-center mb-5 mt-4">
                     <p className="text-xs text-gray-500 font-bold flex items-center gap-1 bg-gray-50 px-3 py-1.5 rounded-xl border border-gray-100">
-                      <Clock size={12} className="text-emerald-500" /> {meal.pickup_time}
+                      <Clock size={12} className="text-emerald-500" /> {meal.pickup_time || 'متاح حالياً'}
                     </p>
                     <p className="text-2xl font-black text-gray-900">{meal.discounted_price} €</p>
                   </div>

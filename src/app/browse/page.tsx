@@ -1,17 +1,23 @@
 'use client'
 import React, { useEffect, useState } from 'react'
 import { createClient } from '@supabase/supabase-js'
-import { Search, Map as MapIcon, List, SlidersHorizontal, Store, Utensils, ShoppingCart, Flower2, Clock, Loader2 } from 'lucide-react'
+import { Search, Map as MapIcon, List, SlidersHorizontal, Store, Utensils, ShoppingCart, Flower2, Clock, Loader2, Shirt, Droplet, Package, Smartphone, Sofa } from 'lucide-react'
 import BottomNav from '@/components/BottomNav'
 
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
 
+// إضافة الأقسام الجديدة مع أيقوناتها المعبرة
 const CATEGORIES = [
   { id: 'الكل', name: 'الكل', icon: Store },
   { id: 'مطاعم', name: 'مطاعم', icon: Utensils },
   { id: 'بقالة', name: 'سوبر ماركت', icon: ShoppingCart },
   { id: 'مخابز', name: 'مخابز', icon: Store },
   { id: 'حلويات', name: 'حلويات', icon: Flower2 },
+  { id: 'ألبسة', name: 'ألبسة', icon: Shirt },
+  { id: 'عطور', name: 'عطور', icon: Droplet },
+  { id: 'عصرونية', name: 'عصرونية', icon: Package },
+  { id: 'موبايلات', name: 'موبايلات', icon: Smartphone },
+  { id: 'أثاث', name: 'أثاث', icon: Sofa },
 ]
 
 export default function BrowsePage() {
@@ -122,7 +128,8 @@ export default function BrowsePage() {
                       <div className="h-32 relative bg-gray-100">
                         <img src={item.image_url} alt={item.name} className="w-full h-full object-cover" />
                         <div className="absolute top-2 right-2 bg-rose-500 text-white px-2 py-1 rounded-xl text-[10px] font-black shadow-sm">
-                          -{Math.round(100 - (item.discounted_price / item.original_price * 100))}%
+                          {/* حل مشكلة Infinity هنا */}
+                          -{item.original_price > 0 ? Math.round(((item.original_price - item.discounted_price) / item.original_price) * 100) : 0}%
                         </div>
                       </div>
                       <div className="p-3 flex-1 flex flex-col justify-between">

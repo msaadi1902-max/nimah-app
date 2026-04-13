@@ -10,7 +10,6 @@ export default function AddMealPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   
-  // حالات لتخزين بيانات النموذج
   const [name, setName] = useState('')
   const [category, setCategory] = useState('مطاعم')
   const [originalPrice, setOriginalPrice] = useState('')
@@ -24,16 +23,15 @@ export default function AddMealPage() {
     try {
       const { data: { user } } = await supabase.auth.getUser()
       
-      // إرسال البيانات إلى قاعدة البيانات
       const { error } = await supabase.from('meals').insert([{
         name: name,
         category: category,
         original_price: parseFloat(originalPrice),
         discounted_price: parseFloat(discountedPrice),
         quantity: parseInt(quantity),
-        is_approved: false, // يحتاج موافقة الإدارة أولاً
+        is_approved: false,
         merchant_id: user?.id || 'unknown',
-        image_url: 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?q=80&w=500&auto=format&fit=crop' // صورة افتراضية مؤقتة
+        image_url: 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?q=80&w=500&auto=format&fit=crop'
       }])
 
       if (error) throw error
@@ -49,43 +47,45 @@ export default function AddMealPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 pb-28 text-right font-sans" dir="rtl">
-      {/* الهيدر */}
       <div className="bg-emerald-600 text-white p-6 pt-12 pb-10 rounded-b-[40px] shadow-lg mb-6 flex items-center justify-between relative overflow-hidden">
         <div className="absolute top-0 left-0 w-32 h-32 bg-white/10 rounded-full blur-2xl -ml-10 -mt-10"></div>
         <button onClick={() => router.back()} className="relative z-10 bg-white/20 p-2 rounded-xl active:scale-95 transition-transform">
           <ArrowRight size={20} />
         </button>
-        <h1 className="relative z-10 text-xl font-black">إضافة عرض جديد 🍱</h1>
+        <h1 className="relative z-10 text-xl font-black">إضافة عرض جديد 📦</h1>
         <div className="w-10"></div>
       </div>
 
       <form onSubmit={handleSubmit} className="px-6 space-y-5">
-        {/* رفع الصورة */}
         <div className="bg-white border-2 border-dashed border-emerald-200 rounded-[30px] p-8 text-center flex flex-col items-center justify-center text-emerald-600 shadow-sm cursor-pointer hover:bg-emerald-50 transition-colors">
           <Upload size={32} className="mb-3 opacity-80" />
-          <span className="text-sm font-black">اضغط لرفع صورة الوجبة</span>
+          <span className="text-sm font-black">اضغط لرفع صورة المنتج</span>
           <span className="text-[10px] text-gray-400 mt-1.5 font-bold">PNG, JPG (الحد الأقصى 2MB)</span>
         </div>
 
-        {/* الحقول */}
         <div className="bg-white p-6 rounded-[30px] shadow-sm border border-gray-100 space-y-4">
           <div>
             <label className="text-xs font-black text-gray-700 mb-1.5 flex items-center gap-1.5">
-              <Tag size={14} className="text-emerald-500"/> اسم الوجبة أو العرض
+              <Tag size={14} className="text-emerald-500"/> اسم المنتج أو العرض
             </label>
-            <input value={name} onChange={(e) => setName(e.target.value)} type="text" required placeholder="مثال: تشكيلة معجنات بنهاية اليوم" className="w-full bg-gray-50 border border-gray-100 p-3.5 rounded-xl text-sm font-bold outline-none focus:border-emerald-500 focus:bg-white transition-all" />
+            <input value={name} onChange={(e) => setName(e.target.value)} type="text" required placeholder="مثال: قميص قطني، عطر صيفي..." className="w-full bg-gray-50 border border-gray-100 p-3.5 rounded-xl text-sm font-bold outline-none focus:border-emerald-500 focus:bg-white transition-all" />
           </div>
 
-          {/* اختيار التصنيف (مهم جداً للفلتر) */}
           <div>
             <label className="text-xs font-black text-gray-700 mb-1.5 flex items-center gap-1.5">
               <ListFilter size={14} className="text-indigo-500"/> تصنيف المتجر
             </label>
+            {/* القائمة الموسعة لتشمل كل السوق */}
             <select value={category} onChange={(e) => setCategory(e.target.value)} className="w-full bg-gray-50 border border-gray-100 p-3.5 rounded-xl text-sm font-bold outline-none focus:border-emerald-500 focus:bg-white transition-all appearance-none">
               <option value="مطاعم">مطاعم</option>
               <option value="مخابز">مخابز</option>
               <option value="حلويات">حلويات</option>
               <option value="بقالة">بقالة (سوبر ماركت)</option>
+              <option value="ألبسة">ألبسة</option>
+              <option value="عطور">عطور</option>
+              <option value="عصرونية">عصرونية (أدوات منزلية)</option>
+              <option value="موبايلات">موبايلات وإلكترونيات</option>
+              <option value="أثاث">أثاث ومفروشات</option>
             </select>
           </div>
 
@@ -106,7 +106,7 @@ export default function AddMealPage() {
 
           <div>
             <label className="text-xs font-black text-gray-700 mb-1.5 flex items-center gap-1.5">
-              <Package size={14} className="text-blue-500"/> الكمية المتاحة (صناديق/وجبات)
+              <Package size={14} className="text-blue-500"/> الكمية المتاحة (قطع/صناديق)
             </label>
             <input value={quantity} onChange={(e) => setQuantity(e.target.value)} type="number" required placeholder="مثال: 5" className="w-full bg-gray-50 border border-gray-100 p-3.5 rounded-xl text-sm font-bold outline-none focus:border-emerald-500 focus:bg-white transition-all" />
           </div>
