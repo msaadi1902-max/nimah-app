@@ -31,9 +31,18 @@ export default function AddMealPage() {
     setLoading(true)
     
     try {
-      const { data: { user } } = await supabase.auth.getUser()
+      // 1. التحقق الصارم من هوية التاجر (الحل الجذري لمشكلة الخطأ)
+      const { data: { user }, error: authError } = await supabase.auth.getUser()
+      
+      if (authError || !user) {
+        alert('عذراً، يجب عليك تسجيل الدخول بحساب تاجر لتتمكن من نشر العروض.')
+        setLoading(false)
+        return
+      }
+
       const pickupTimeFormatted = `${startTime} - ${endTime}`
 
+      // 2. إرسال البيانات باستخدام الـ ID الحقيقي للتاجر
       const { error } = await supabase.from('meals').insert([{
         name: name,
         category: category,
@@ -42,7 +51,7 @@ export default function AddMealPage() {
         quantity: parseInt(quantity),
         pickup_time: pickupTimeFormatted,
         is_approved: false,
-        merchant_id: user?.id || 'unknown',
+        merchant_id: user.id, // تم وضع المعرف الحقيقي هنا
         image_url: 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?q=80&w=500&auto=format&fit=crop'
       }])
 
@@ -51,7 +60,7 @@ export default function AddMealPage() {
       alert('تم إرسال العرض للإدارة بنجاح! 🎉 بانتظار الموافقة.')
       router.back()
     } catch (error: any) {
-      alert('حدث خطأ: ' + error.message)
+      alert('حدث خطأ أثناء رفع البيانات: ' + error.message)
     } finally {
       setLoading(false)
     }
