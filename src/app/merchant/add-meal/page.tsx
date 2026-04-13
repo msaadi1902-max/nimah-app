@@ -1,7 +1,7 @@
 'use client'
 import React, { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowRight, Upload, PlusCircle, Tag, Euro, Package, ListFilter, Clock, ImageIcon } from 'lucide-react'
+import { ArrowRight, Upload, PlusCircle, Tag, Euro, Package, ListFilter, Clock, ImageIcon, Loader2 } from 'lucide-react'
 import { createClient } from '@supabase/supabase-js'
 
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
@@ -18,32 +18,56 @@ export default function AddMealPage() {
   const [quantity, setQuantity] = useState('')
   const [startTime, setStartTime] = useState('')
   const [endTime, setEndTime] = useState('')
+  const [imageFile, setImageFile] = useState<File | null>(null) // تخزين الملف الحقيقي
   const [imageName, setImageName] = useState('')
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      setImageName(e.target.files[0].name)
+      const file = e.target.files[0]
+      setImageFile(file)
+      setImageName(file.name)
     }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    
+    if (!imageFile) {
+      alert('يرجى رفع صورة للمنتج أولاً 📸')
+      return
+    }
+
     setLoading(true)
     
     try {
-      // 1. التحقق الصارم من هوية التاجر (الحل الجذري لمشكلة الخطأ)
       const { data: { user }, error: authError } = await supabase.auth.getUser()
-      
       if (authError || !user) {
-        alert('عذراً، يجب عليك تسجيل الدخول بحساب تاجر لتتمكن من نشر العروض.')
+        alert('يجب عليك تسجيل الدخول بحساب تاجر.')
         setLoading(false)
         return
       }
 
-      const pickupTimeFormatted = `${startTime} - ${endTime}`
+      // 1. رفع الصورة إلى Supabase Storage أولاً
+      const fileExt = imageFile.name.split('.').pop()
+      const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}` // اسم فريد للصورة
+      const filePath = `uploads/${fileName}`
 
-      // 2. إرسال البيانات باستخدام الـ ID الحقيقي للتاجر
-      const { error } = await supabase.from('meals').insert([{
+      const { error: uploadError } = await supabase.storage
+        .from('product-images')
+        .upload(filePath, imageFile)
+
+      if (uploadError) throw new Error('فشل رفع الصورة: ' + uploadError.message)
+
+      // 2. الحصول على الرابط العام للصورة بعد نجاح الرفع
+      const { data: publicUrlData } = supabase.storage
+        .from('product-images')
+        .getPublicUrl(filePath)
+      
+      const finalImageUrl = publicUrlData.publicUrl
+
+      // 3. دمج الوقت وحفظ المنتج في قاعدة البيانات
+      const pickupTimeFormatted = `${startTime} - ${endTime}`
+      const { error: insertError } = await supabase.from('meals').insert([{
         name: name,
         category: category,
         original_price: parseFloat(originalPrice),
@@ -51,16 +75,16 @@ export default function AddMealPage() {
         quantity: parseInt(quantity),
         pickup_time: pickupTimeFormatted,
         is_approved: false,
-        merchant_id: user.id, // تم وضع المعرف الحقيقي هنا
-        image_url: 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?q=80&w=500&auto=format&fit=crop'
+        merchant_id: user.id,
+        image_url: finalImageUrl // الرابط الحقيقي للصورة المرفوعة
       }])
 
-      if (error) throw error
+      if (insertError) throw insertError
 
-      alert('تم إرسال العرض للإدارة بنجاح! 🎉 بانتظار الموافقة.')
+      alert('تم إرسال العرض بنجاح مع الصورة! 🎉 بانتظار موافقة الإدارة.')
       router.back()
     } catch (error: any) {
-      alert('حدث خطأ أثناء رفع البيانات: ' + error.message)
+      alert(error.message)
     } finally {
       setLoading(false)
     }
@@ -68,7 +92,6 @@ export default function AddMealPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 pb-28 text-right font-sans" dir="rtl">
-      
       <div className="bg-emerald-600 text-white p-6 pt-12 pb-10 rounded-b-[40px] shadow-lg mb-6 flex items-center justify-between relative overflow-hidden">
         <div className="absolute top-0 left-0 w-32 h-32 bg-white/10 rounded-full blur-2xl -ml-10 -mt-10"></div>
         <button onClick={() => router.back()} className="relative z-10 bg-white/20 p-2 rounded-xl active:scale-95 transition-transform">
@@ -79,26 +102,31 @@ export default function AddMealPage() {
       </div>
 
       <form onSubmit={handleSubmit} className="px-6 space-y-5">
+        
+        {/* منطقة رفع الصورة (التفاعلية) */}
         <div 
           onClick={() => fileInputRef.current?.click()}
-          className="bg-white border-2 border-dashed border-emerald-200 rounded-[30px] p-8 text-center flex flex-col items-center justify-center text-emerald-600 shadow-sm cursor-pointer hover:bg-emerald-50 transition-colors"
+          className={`bg-white border-2 border-dashed ${imageFile ? 'border-emerald-500 bg-emerald-50/50' : 'border-emerald-200 hover:bg-emerald-50'} rounded-[30px] p-8 text-center flex flex-col items-center justify-center text-emerald-600 shadow-sm cursor-pointer transition-colors`}
         >
           <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*" className="hidden" />
-          {imageName ? (
+          {imageFile ? (
             <>
-              <ImageIcon size={32} className="mb-3 text-emerald-500" />
-              <span className="text-sm font-black text-gray-800">{imageName}</span>
-              <span className="text-[10px] text-emerald-600 mt-1.5 font-bold">تم اختيار الصورة بنجاح ✅</span>
+              <div className="w-16 h-16 mb-3 rounded-2xl overflow-hidden shadow-sm">
+                <img src={URL.createObjectURL(imageFile)} alt="Preview" className="w-full h-full object-cover" />
+              </div>
+              <span className="text-xs font-black text-gray-800 line-clamp-1 px-4">{imageName}</span>
+              <span className="text-[10px] text-emerald-600 mt-1 font-bold">اضغط لتغيير الصورة 🔄</span>
             </>
           ) : (
             <>
               <Upload size={32} className="mb-3 opacity-80" />
               <span className="text-sm font-black">اضغط لرفع صورة المنتج</span>
-              <span className="text-[10px] text-gray-400 mt-1.5 font-bold">PNG, JPG (الحد الأقصى 2MB)</span>
+              <span className="text-[10px] text-gray-400 mt-1.5 font-bold">PNG, JPG (الحد الأقصى 5MB)</span>
             </>
           )}
         </div>
 
+        {/* باقي الحقول */}
         <div className="bg-white p-6 rounded-[30px] shadow-sm border border-gray-100 space-y-4 relative overflow-hidden">
           <div className="absolute top-0 right-0 w-1.5 h-full bg-emerald-500"></div>
           
@@ -157,7 +185,7 @@ export default function AddMealPage() {
         </div>
 
         <button disabled={loading} type="submit" className="w-full bg-emerald-600 text-white py-4 rounded-2xl font-black shadow-lg shadow-emerald-600/20 flex justify-center items-center gap-2 active:scale-95 transition-all mt-6 disabled:opacity-70">
-          {loading ? 'جاري النشر...' : <><PlusCircle size={20} /> نشر العرض الآن</>}
+          {loading ? <><Loader2 className="animate-spin" size={20} /> جاري رفع الصورة والنشر...</> : <><PlusCircle size={20} /> نشر العرض الآن</>}
         </button>
       </form>
     </div>
