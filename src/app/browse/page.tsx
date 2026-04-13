@@ -1,6 +1,5 @@
 'use client'
 import React, { useEffect, useState } from 'react'
-import Link from 'next/link'
 import { createClient } from '@supabase/supabase-js'
 import { Search, Map as MapIcon, List, SlidersHorizontal, Store, Utensils, ShoppingCart, Flower2, Clock, Loader2 } from 'lucide-react'
 import BottomNav from '@/components/BottomNav'
@@ -37,14 +36,13 @@ export default function BrowsePage() {
   useEffect(() => {
     const delayDebounceFn = setTimeout(() => {
       fetchItems()
-    }, 300) // تأخير بسيط للبحث لتحسين الأداء
+    }, 300) 
     return () => clearTimeout(delayDebounceFn)
   }, [activeCategory, searchQuery])
 
   return (
     <div className="min-h-screen bg-gray-50 pb-28 font-sans text-right" dir="rtl">
       
-      {/* الهيدر وشريط البحث */}
       <div className="bg-white px-4 pt-10 pb-4 sticky top-0 z-20 shadow-sm rounded-b-3xl">
         <h1 className="text-2xl font-black text-gray-900 mb-4 px-2">استكشف السوق 🌍</h1>
         <div className="flex gap-2 mb-4">
@@ -63,7 +61,6 @@ export default function BrowsePage() {
           </div>
         </div>
 
-        {/* زر التبديل بين خريطة وقائمة */}
         <div className="flex bg-gray-100 rounded-2xl p-1 relative">
           <div
             className={`absolute top-1 bottom-1 w-[calc(50%-4px)] bg-emerald-800 rounded-xl transition-all duration-300 ease-in-out shadow-sm ${
