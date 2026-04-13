@@ -1,65 +1,119 @@
 'use client'
 import React, { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowRight, Upload, PlusCircle, Tag, Euro, Package } from 'lucide-react'
-// استدعاء Supabase إذا أردت ربطها بقاعدة البيانات
+import { ArrowRight, Upload, PlusCircle, Tag, Euro, Package, ListFilter } from 'lucide-react'
+import { createClient } from '@supabase/supabase-js'
+
+const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
 
 export default function AddMealPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
+  
+  // حالات لتخزين بيانات النموذج
+  const [name, setName] = useState('')
+  const [category, setCategory] = useState('مطاعم')
+  const [originalPrice, setOriginalPrice] = useState('')
+  const [discountedPrice, setDiscountedPrice] = useState('')
+  const [quantity, setQuantity] = useState('')
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
-    // هنا يتم إرسال البيانات إلى Supabase لاحقاً
-    setTimeout(() => {
-      alert('تمت إضافة العرض بنجاح! 🎉')
+    
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      
+      // إرسال البيانات إلى قاعدة البيانات
+      const { error } = await supabase.from('meals').insert([{
+        name: name,
+        category: category,
+        original_price: parseFloat(originalPrice),
+        discounted_price: parseFloat(discountedPrice),
+        quantity: parseInt(quantity),
+        is_approved: false, // يحتاج موافقة الإدارة أولاً
+        merchant_id: user?.id || 'unknown',
+        image_url: 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?q=80&w=500&auto=format&fit=crop' // صورة افتراضية مؤقتة
+      }])
+
+      if (error) throw error
+
+      alert('تم إرسال العرض للإدارة بنجاح! 🎉 بانتظار الموافقة.')
       router.back()
-    }, 1500)
+    } catch (error: any) {
+      alert('حدث خطأ: ' + error.message)
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
     <div className="min-h-screen bg-gray-50 pb-28 text-right font-sans" dir="rtl">
-      <div className="bg-emerald-600 text-white p-6 pt-12 pb-10 rounded-b-[40px] shadow-lg mb-6 flex items-center justify-between">
-        <button onClick={() => router.back()} className="bg-white/20 p-2 rounded-xl"><ArrowRight size={20} /></button>
-        <h1 className="text-xl font-black">إضافة عرض جديد 🍱</h1>
+      {/* الهيدر */}
+      <div className="bg-emerald-600 text-white p-6 pt-12 pb-10 rounded-b-[40px] shadow-lg mb-6 flex items-center justify-between relative overflow-hidden">
+        <div className="absolute top-0 left-0 w-32 h-32 bg-white/10 rounded-full blur-2xl -ml-10 -mt-10"></div>
+        <button onClick={() => router.back()} className="relative z-10 bg-white/20 p-2 rounded-xl active:scale-95 transition-transform">
+          <ArrowRight size={20} />
+        </button>
+        <h1 className="relative z-10 text-xl font-black">إضافة عرض جديد 🍱</h1>
         <div className="w-10"></div>
       </div>
 
-      <form onSubmit={handleSubmit} className="px-6 space-y-4">
+      <form onSubmit={handleSubmit} className="px-6 space-y-5">
         {/* رفع الصورة */}
-        <div className="bg-white border-2 border-dashed border-emerald-200 rounded-[30px] p-8 text-center flex flex-col items-center justify-center text-emerald-600 shadow-sm">
-          <Upload size={30} className="mb-2 opacity-70" />
+        <div className="bg-white border-2 border-dashed border-emerald-200 rounded-[30px] p-8 text-center flex flex-col items-center justify-center text-emerald-600 shadow-sm cursor-pointer hover:bg-emerald-50 transition-colors">
+          <Upload size={32} className="mb-3 opacity-80" />
           <span className="text-sm font-black">اضغط لرفع صورة الوجبة</span>
-          <span className="text-[10px] text-gray-400 mt-1">PNG, JPG (الحد الأقصى 2MB)</span>
+          <span className="text-[10px] text-gray-400 mt-1.5 font-bold">PNG, JPG (الحد الأقصى 2MB)</span>
         </div>
 
         {/* الحقول */}
         <div className="bg-white p-6 rounded-[30px] shadow-sm border border-gray-100 space-y-4">
           <div>
-            <label className="text-xs font-black text-gray-700 mb-1 flex items-center gap-1"><Tag size={14} className="text-emerald-500"/> اسم الوجبة</label>
-            <input type="text" required placeholder="مثال: تشكيلة معجنات بنهاية اليوم" className="w-full bg-gray-50 border border-gray-200 p-3 rounded-xl text-sm outline-none focus:border-emerald-500" />
+            <label className="text-xs font-black text-gray-700 mb-1.5 flex items-center gap-1.5">
+              <Tag size={14} className="text-emerald-500"/> اسم الوجبة أو العرض
+            </label>
+            <input value={name} onChange={(e) => setName(e.target.value)} type="text" required placeholder="مثال: تشكيلة معجنات بنهاية اليوم" className="w-full bg-gray-50 border border-gray-100 p-3.5 rounded-xl text-sm font-bold outline-none focus:border-emerald-500 focus:bg-white transition-all" />
+          </div>
+
+          {/* اختيار التصنيف (مهم جداً للفلتر) */}
+          <div>
+            <label className="text-xs font-black text-gray-700 mb-1.5 flex items-center gap-1.5">
+              <ListFilter size={14} className="text-indigo-500"/> تصنيف المتجر
+            </label>
+            <select value={category} onChange={(e) => setCategory(e.target.value)} className="w-full bg-gray-50 border border-gray-100 p-3.5 rounded-xl text-sm font-bold outline-none focus:border-emerald-500 focus:bg-white transition-all appearance-none">
+              <option value="مطاعم">مطاعم</option>
+              <option value="مخابز">مخابز</option>
+              <option value="حلويات">حلويات</option>
+              <option value="بقالة">بقالة (سوبر ماركت)</option>
+            </select>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="text-xs font-black text-gray-700 mb-1 flex items-center gap-1"><Euro size={14} className="text-rose-500"/> السعر الأصلي</label>
-              <input type="number" required placeholder="10.00" className="w-full bg-gray-50 border border-gray-200 p-3 rounded-xl text-sm outline-none focus:border-emerald-500" />
+              <label className="text-xs font-black text-gray-700 mb-1.5 flex items-center gap-1.5">
+                <Euro size={14} className="text-rose-500"/> السعر الأصلي
+              </label>
+              <input value={originalPrice} onChange={(e) => setOriginalPrice(e.target.value)} type="number" step="0.01" required placeholder="10.00" className="w-full bg-gray-50 border border-gray-100 p-3.5 rounded-xl text-sm font-bold outline-none focus:border-emerald-500 focus:bg-white transition-all" />
             </div>
             <div>
-              <label className="text-xs font-black text-gray-700 mb-1 flex items-center gap-1"><Euro size={14} className="text-emerald-500"/> سعر العرض</label>
-              <input type="number" required placeholder="3.00" className="w-full bg-emerald-50 border border-emerald-200 p-3 rounded-xl text-sm outline-none focus:border-emerald-500 text-emerald-700 font-bold" />
+              <label className="text-xs font-black text-gray-700 mb-1.5 flex items-center gap-1.5">
+                <Euro size={14} className="text-emerald-500"/> سعر العرض
+              </label>
+              <input value={discountedPrice} onChange={(e) => setDiscountedPrice(e.target.value)} type="number" step="0.01" required placeholder="3.00" className="w-full bg-emerald-50 border border-emerald-200 p-3.5 rounded-xl text-sm outline-none focus:border-emerald-500 text-emerald-700 font-black" />
             </div>
           </div>
 
           <div>
-            <label className="text-xs font-black text-gray-700 mb-1 flex items-center gap-1"><Package size={14} className="text-blue-500"/> الكمية المتاحة (صناديق)</label>
-            <input type="number" required placeholder="مثال: 5" className="w-full bg-gray-50 border border-gray-200 p-3 rounded-xl text-sm outline-none focus:border-emerald-500" />
+            <label className="text-xs font-black text-gray-700 mb-1.5 flex items-center gap-1.5">
+              <Package size={14} className="text-blue-500"/> الكمية المتاحة (صناديق/وجبات)
+            </label>
+            <input value={quantity} onChange={(e) => setQuantity(e.target.value)} type="number" required placeholder="مثال: 5" className="w-full bg-gray-50 border border-gray-100 p-3.5 rounded-xl text-sm font-bold outline-none focus:border-emerald-500 focus:bg-white transition-all" />
           </div>
         </div>
 
-        <button disabled={loading} type="submit" className="w-full bg-emerald-600 text-white py-4 rounded-2xl font-black shadow-lg shadow-emerald-200 flex justify-center items-center gap-2 active:scale-95 transition-all mt-4">
-          {loading ? 'جاري الإضافة...' : <><PlusCircle size={20} /> نشر العرض الآن</>}
+        <button disabled={loading} type="submit" className="w-full bg-emerald-600 text-white py-4 rounded-2xl font-black shadow-lg shadow-emerald-600/20 flex justify-center items-center gap-2 active:scale-95 transition-all mt-6 disabled:opacity-70">
+          {loading ? 'جاري النشر...' : <><PlusCircle size={20} /> نشر العرض الآن</>}
         </button>
       </form>
     </div>
