@@ -1,8 +1,7 @@
 "use client";
 
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 
-// تعريف شكل الوجبة
 type Deal = {
   id: string;
   name: string;
@@ -11,7 +10,6 @@ type Deal = {
   image: string;
 };
 
-// تعريف شكل السحابة (ماذا تحمل؟)
 type CartContextType = {
   cart: Deal[];
   addToCart: (deal: Deal) => void;
@@ -19,17 +17,35 @@ type CartContextType = {
   clearCart: () => void;
 };
 
-// إنشاء السحابة
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
-// هذا هو الموزع الذي سيغلف التطبيق
 export function CartProvider({ children }: { children: React.ReactNode }) {
   const [cart, setCart] = useState<Deal[]>([]);
 
+  // تحميل السلة من التخزين المحلي عند فتح التطبيق
+  useEffect(() => {
+    const savedCart = localStorage.getItem('nimah_cart');
+    if (savedCart) {
+      try {
+        setCart(JSON.parse(savedCart));
+      } catch (e) {
+        console.error("Failed to parse cart", e);
+      }
+    }
+  }, []);
+
+  // حفظ السلة تلقائياً عند أي تغيير
+  useEffect(() => {
+    localStorage.setItem('nimah_cart', JSON.stringify(cart));
+  }, [cart]);
+
   const addToCart = (deal: Deal) => {
-    // التأكد من عدم إضافة الوجبة مرتين
     if (!cart.find(item => item.id === deal.id)) {
       setCart([...cart, deal]);
+      // تنبيه بسيط (يمكنك استبداله بـ Toast لاحقاً)
+      alert("تمت إضافة الوجبة للسلة! 🎉");
+    } else {
+      alert("الوجبة موجودة بالفعل في السلة");
     }
   };
 
@@ -48,7 +64,6 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
-// أداة سريعة لاستخدام السحابة في أي شاشة
 export function useCart() {
   const context = useContext(CartContext);
   if (context === undefined) {
