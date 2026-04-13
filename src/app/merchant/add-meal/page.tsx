@@ -1,128 +1,156 @@
 'use client'
-import React, { useEffect, useState } from 'react'
-import { createClient } from '@supabase/supabase-js'
-import { ShieldAlert, CheckCircle, XCircle, Utensils, Store, Loader2, ArrowRight } from 'lucide-react'
+import React, { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
+import { ArrowRight, Upload, PlusCircle, Tag, Euro, Package, ListFilter, Clock, ImageIcon } from 'lucide-react'
+import { createClient } from '@supabase/supabase-js'
 
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
 
-export default function AdminMealsPage() {
-  const [pendingMeals, setPendingMeals] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
+export default function AddMealPage() {
   const router = useRouter()
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  
+  const [loading, setLoading] = useState(false)
+  const [name, setName] = useState('')
+  const [category, setCategory] = useState('مطاعم')
+  const [originalPrice, setOriginalPrice] = useState('')
+  const [discountedPrice, setDiscountedPrice] = useState('')
+  const [quantity, setQuantity] = useState('')
+  const [startTime, setStartTime] = useState('')
+  const [endTime, setEndTime] = useState('')
+  const [imageName, setImageName] = useState('')
 
-  useEffect(() => {
-    fetchPendingMeals()
-  }, [])
-
-  // جلب العروض التي تنتظر الموافقة
-  const fetchPendingMeals = async () => {
-    setLoading(true)
-    const { data, error } = await supabase
-      .from('meals')
-      .select('*')
-      .eq('is_approved', false) // نجلب الغير موافق عليها فقط
-      .order('created_at', { ascending: false })
-
-    if (data) setPendingMeals(data)
-    setLoading(false)
-  }
-
-  // دالة الموافقة على العرض
-  const handleApprove = async (id: number) => {
-    const { error } = await supabase
-      .from('meals')
-      .update({ is_approved: true })
-      .eq('id', id)
-
-    if (!error) {
-      // إخفاء العرض من هذه الشاشة لأنه تمت الموافقة عليه
-      setPendingMeals(pendingMeals.filter(meal => meal.id !== id))
-      alert('✅ تمت الموافقة على العرض! سيظهر للزبائن الآن.')
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setImageName(e.target.files[0].name)
     }
   }
 
-  // دالة رفض العرض (حذفه)
-  const handleReject = async (id: number) => {
-    if (confirm('هل أنت متأكد من رفض وحذف هذا العرض؟')) {
-      const { error } = await supabase.from('meals').delete().eq('id', id)
-      if (!error) {
-        setPendingMeals(pendingMeals.filter(meal => meal.id !== id))
-      }
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setLoading(true)
+    
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      const pickupTimeFormatted = `${startTime} - ${endTime}`
+
+      const { error } = await supabase.from('meals').insert([{
+        name: name,
+        category: category,
+        original_price: parseFloat(originalPrice),
+        discounted_price: parseFloat(discountedPrice),
+        quantity: parseInt(quantity),
+        pickup_time: pickupTimeFormatted,
+        is_approved: false,
+        merchant_id: user?.id || 'unknown',
+        image_url: 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?q=80&w=500&auto=format&fit=crop'
+      }])
+
+      if (error) throw error
+
+      alert('تم إرسال العرض للإدارة بنجاح! 🎉 بانتظار الموافقة.')
+      router.back()
+    } catch (error: any) {
+      alert('حدث خطأ: ' + error.message)
+    } finally {
+      setLoading(false)
     }
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-20 text-right font-sans" dir="rtl">
+    <div className="min-h-screen bg-gray-50 pb-28 text-right font-sans" dir="rtl">
       
-      {/* هيدر الإدارة */}
-      <div className="bg-slate-900 text-white p-6 pt-12 pb-16 rounded-b-[40px] shadow-2xl relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-40 h-40 bg-rose-500/10 rounded-full -mr-20 -mt-20 blur-3xl"></div>
-        <button onClick={() => router.back()} className="relative z-10 bg-white/10 p-2 rounded-xl mb-6 active:scale-95 transition-transform">
+      <div className="bg-emerald-600 text-white p-6 pt-12 pb-10 rounded-b-[40px] shadow-lg mb-6 flex items-center justify-between relative overflow-hidden">
+        <div className="absolute top-0 left-0 w-32 h-32 bg-white/10 rounded-full blur-2xl -ml-10 -mt-10"></div>
+        <button onClick={() => router.back()} className="relative z-10 bg-white/20 p-2 rounded-xl active:scale-95 transition-transform">
           <ArrowRight size={20} />
         </button>
-        <div className="relative z-10">
-          <h1 className="text-2xl font-black flex items-center gap-2 mb-1">
-            <ShieldAlert className="text-rose-400" /> إدارة العروض الجديدة
-          </h1>
-          <p className="text-gray-400 font-bold text-sm">راجع طلبات التجار ووافق عليها لتُنشر في التطبيق</p>
+        <h1 className="relative z-10 text-xl font-black">إضافة منتج جديد 📦</h1>
+        <div className="w-10"></div>
+      </div>
+
+      <form onSubmit={handleSubmit} className="px-6 space-y-5">
+        <div 
+          onClick={() => fileInputRef.current?.click()}
+          className="bg-white border-2 border-dashed border-emerald-200 rounded-[30px] p-8 text-center flex flex-col items-center justify-center text-emerald-600 shadow-sm cursor-pointer hover:bg-emerald-50 transition-colors"
+        >
+          <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*" className="hidden" />
+          {imageName ? (
+            <>
+              <ImageIcon size={32} className="mb-3 text-emerald-500" />
+              <span className="text-sm font-black text-gray-800">{imageName}</span>
+              <span className="text-[10px] text-emerald-600 mt-1.5 font-bold">تم اختيار الصورة بنجاح ✅</span>
+            </>
+          ) : (
+            <>
+              <Upload size={32} className="mb-3 opacity-80" />
+              <span className="text-sm font-black">اضغط لرفع صورة المنتج</span>
+              <span className="text-[10px] text-gray-400 mt-1.5 font-bold">PNG, JPG (الحد الأقصى 2MB)</span>
+            </>
+          )}
         </div>
-      </div>
 
-      <div className="px-6 -mt-8 relative z-20">
-        
-        {loading ? (
-          <div className="flex justify-center py-20 bg-white rounded-[30px] shadow-lg"><Loader2 className="animate-spin text-slate-800 w-10 h-10" /></div>
-        ) : pendingMeals.length === 0 ? (
-          <div className="text-center bg-white p-12 rounded-[35px] shadow-lg border border-gray-100">
-            <CheckCircle size={50} className="mx-auto text-emerald-400 mb-4" />
-            <h3 className="font-black text-gray-900 text-xl mb-2">الوضع ممتاز!</h3>
-            <p className="text-gray-500 font-bold text-sm">لا توجد عروض بانتظار المراجعة حالياً.</p>
+        <div className="bg-white p-6 rounded-[30px] shadow-sm border border-gray-100 space-y-4 relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-1.5 h-full bg-emerald-500"></div>
+          
+          <div>
+            <label className="text-xs font-black text-gray-700 mb-1.5 flex items-center gap-1.5">
+              <Tag size={14} className="text-emerald-500"/> اسم المنتج أو العرض
+            </label>
+            <input value={name} onChange={(e) => setName(e.target.value)} type="text" required placeholder="مثال: قميص قطني، عطر صيفي..." className="w-full bg-gray-50 border border-gray-100 p-3.5 rounded-xl text-sm font-bold outline-none focus:border-emerald-500" />
           </div>
-        ) : (
-          <div className="space-y-4">
-            <div className="flex items-center gap-2 mb-2 px-2">
-              <span className="bg-rose-100 text-rose-600 px-3 py-1 rounded-full text-xs font-black">{pendingMeals.length}</span>
-              <h2 className="text-sm font-black text-gray-600">عروض قيد الانتظار</h2>
+
+          <div>
+            <label className="text-xs font-black text-gray-700 mb-1.5 flex items-center gap-1.5">
+              <ListFilter size={14} className="text-indigo-500"/> تصنيف المتجر
+            </label>
+            <select value={category} onChange={(e) => setCategory(e.target.value)} className="w-full bg-gray-50 border border-gray-100 p-3.5 rounded-xl text-sm font-bold outline-none focus:border-emerald-500">
+              <option value="مطاعم">مطاعم</option>
+              <option value="مخابز">مخابز</option>
+              <option value="حلويات">حلويات</option>
+              <option value="بقالة">بقالة (سوبر ماركت)</option>
+              <option value="ألبسة">ألبسة</option>
+              <option value="عطور">عطور</option>
+              <option value="عصرونية">عصرونية (أدوات منزلية)</option>
+              <option value="موبايلات">موبايلات وإلكترونيات</option>
+              <option value="أثاث">أثاث ومفروشات</option>
+            </select>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="text-xs font-black text-gray-700 mb-1.5 flex items-center gap-1.5"><Euro size={14} className="text-rose-500"/> السعر الأصلي</label>
+              <input value={originalPrice} onChange={(e) => setOriginalPrice(e.target.value)} type="number" step="0.01" required placeholder="10.00" className="w-full bg-gray-50 border border-gray-100 p-3.5 rounded-xl text-sm font-bold outline-none focus:border-emerald-500" />
             </div>
-            
-            {pendingMeals.map((meal) => (
-              <div key={meal.id} className="bg-white p-5 rounded-[30px] shadow-md border border-gray-100 space-y-4">
-                <div className="flex justify-between items-start border-b border-gray-50 pb-4">
-                  <div className="flex gap-4">
-                    <img src={meal.image_url} alt={meal.name} className="w-16 h-16 rounded-2xl object-cover bg-gray-100" />
-                    <div>
-                      <h3 className="font-black text-lg text-gray-900 leading-tight mb-1">{meal.name}</h3>
-                      <p className="text-xs font-bold text-gray-500 flex items-center gap-1">
-                        <Store size={12} /> {meal.category}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="text-left">
-                    <p className="font-black text-lg text-emerald-600">{meal.discounted_price} €</p>
-                    <p className="text-[10px] text-gray-400 font-bold line-through">{meal.original_price} €</p>
-                  </div>
-                </div>
-
-                <div className="flex gap-3 pt-2">
-                  <button 
-                    onClick={() => handleApprove(meal.id)}
-                    className="flex-1 bg-emerald-100 hover:bg-emerald-500 hover:text-white text-emerald-700 py-3 rounded-2xl font-black text-sm flex items-center justify-center gap-2 transition-all"
-                  >
-                    <CheckCircle size={18} /> قبول ونشر
-                  </button>
-                  <button 
-                    onClick={() => handleReject(meal.id)}
-                    className="flex-1 bg-rose-50 hover:bg-rose-500 hover:text-white text-rose-600 py-3 rounded-2xl font-black text-sm flex items-center justify-center gap-2 transition-all"
-                  >
-                    <XCircle size={18} /> رفض العرض
-                  </button>
-                </div>
-              </div>
-            ))}
+            <div>
+              <label className="text-xs font-black text-gray-700 mb-1.5 flex items-center gap-1.5"><Euro size={14} className="text-emerald-500"/> سعر العرض</label>
+              <input value={discountedPrice} onChange={(e) => setDiscountedPrice(e.target.value)} type="number" step="0.01" required placeholder="3.00" className="w-full bg-emerald-50 border border-emerald-200 p-3.5 rounded-xl text-sm outline-none focus:border-emerald-500 text-emerald-700 font-black" />
+            </div>
           </div>
-        )}
-      </div>
+
+          <div className="grid grid-cols-2 gap-4 pt-2 border-t border-gray-50">
+            <div>
+              <label className="text-[10px] font-black text-gray-500 mb-1.5 flex items-center gap-1"><Clock size={12} className="text-amber-500"/> متاح من الساعة</label>
+              <input value={startTime} onChange={(e) => setStartTime(e.target.value)} type="time" required className="w-full bg-gray-50 border border-gray-100 p-3 rounded-xl text-xs font-bold outline-none focus:border-emerald-500" />
+            </div>
+            <div>
+              <label className="text-[10px] font-black text-gray-500 mb-1.5 flex items-center gap-1"><Clock size={12} className="text-rose-500"/> ينتهي العرض الساعة</label>
+              <input value={endTime} onChange={(e) => setEndTime(e.target.value)} type="time" required className="w-full bg-gray-50 border border-gray-100 p-3 rounded-xl text-xs font-bold outline-none focus:border-emerald-500" />
+            </div>
+          </div>
+
+          <div>
+            <label className="text-xs font-black text-gray-700 mb-1.5 flex items-center gap-1.5">
+              <Package size={14} className="text-blue-500"/> الكمية المتاحة (قطع/صناديق)
+            </label>
+            <input value={quantity} onChange={(e) => setQuantity(e.target.value)} type="number" required placeholder="مثال: 5" className="w-full bg-gray-50 border border-gray-100 p-3.5 rounded-xl text-sm font-bold outline-none focus:border-emerald-500" />
+          </div>
+        </div>
+
+        <button disabled={loading} type="submit" className="w-full bg-emerald-600 text-white py-4 rounded-2xl font-black shadow-lg shadow-emerald-600/20 flex justify-center items-center gap-2 active:scale-95 transition-all mt-6 disabled:opacity-70">
+          {loading ? 'جاري النشر...' : <><PlusCircle size={20} /> نشر العرض الآن</>}
+        </button>
+      </form>
     </div>
   )
 }
