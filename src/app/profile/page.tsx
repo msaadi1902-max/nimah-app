@@ -5,7 +5,8 @@ import { createClient } from '@supabase/supabase-js'
 import { 
   UserCircle, Wallet, CreditCard, Ticket, Bell, Gift, 
   Store, Info, Share2, LogOut, ChevronLeft, Heart,
-  Landmark, ShieldCheck, Loader2, Sparkles, Settings
+  Landmark, ShieldCheck, Loader2, Sparkles, Settings,
+  Leaf, TrendingDown, PiggyBank
 } from 'lucide-react'
 import BottomNav from '@/components/BottomNav'
 
@@ -16,6 +17,13 @@ export default function AdvancedProfilePage() {
   const [profile, setProfile] = useState<any>(null)
   const [userRole, setUserRole] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  
+  // حالة الإحصائيات (للزبائن فقط)
+  const [stats, setStats] = useState({
+    rescuedMeals: 0,
+    savedMoney: 0,
+    co2Saved: 0
+  })
 
   useEffect(() => {
     fetchUserData()
@@ -24,6 +32,7 @@ export default function AdvancedProfilePage() {
   const fetchUserData = async () => {
     const { data: { user } } = await supabase.auth.getUser()
     if (user) {
+      // 1. جلب بيانات البروفايل
       const { data: profileData } = await supabase
         .from('profiles')
         .select('*')
@@ -33,6 +42,29 @@ export default function AdvancedProfilePage() {
       if (profileData) {
         setProfile(profileData)
         setUserRole(profileData.role)
+
+        // 2. حساب إحصائيات الأثر البيئي والتوفير (إذا كان المستخدم زبوناً)
+        if (profileData.role !== 'merchant') {
+          const { data: orders } = await supabase
+            .from('orders')
+            .select('price, meals(original_price)')
+            .eq('customer_email', user.email)
+
+          if (orders && orders.length > 0) {
+            const rescued = orders.length
+            let saved = 0
+            orders.forEach((o: any) => {
+              const original = o.meals?.original_price || o.price
+              if (original > o.price) saved += (original - o.price)
+            })
+
+            setStats({
+              rescuedMeals: rescued,
+              savedMoney: saved,
+              co2Saved: rescued * 2.5 // تقديراً: كل وجبة تنقذ 2.5 كغ من انبعاثات CO2
+            })
+          }
+        }
       }
     } else {
       router.replace('/welcome') 
@@ -41,17 +73,20 @@ export default function AdvancedProfilePage() {
   }
 
   const handleLogout = async () => {
-    await supabase.auth.signOut()
-    localStorage.removeItem('user_role')
-    document.cookie = "user_role=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;"
-    router.push('/welcome')
+    const confirm = window.confirm("هل أنت متأكد من تسجيل الخروج؟")
+    if (confirm) {
+      await supabase.auth.signOut()
+      localStorage.removeItem('user_role')
+      document.cookie = "user_role=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;"
+      router.push('/welcome')
+    }
   }
 
   // بناء الأقسام ديناميكياً بناءً على الصلاحيات
   const buildSections = () => {
     const sections = []
 
-    // 1. قسم التأثير (للجميع)
+    // 1. قسم التأثير (للجميع - يمكن أن يوجه لصفحة تفصيلية لاحقاً)
     sections.push({
       title: "تأثيرك المجتمعي",
       items: [
@@ -81,7 +116,7 @@ export default function AdvancedProfilePage() {
       sections.push({
         title: "إدارة الأعمال",
         items: [
-          { name: 'لوحة تحكم المتجر 👨‍🍳', icon: Store, color: 'text-emerald-600', path: '/merchant' },
+          { name: 'لوحة تحكم المتجر 👨‍🍳', icon: Store, color: 'text-emerald-600', path: '/merchant-dashboard' },
           { name: 'إدارة الطلبات الواردة 📦', icon: ShieldCheck, color: 'text-blue-600', path: '/merchant-orders' },
         ]
       })
@@ -101,8 +136,8 @@ export default function AdvancedProfilePage() {
   }
 
   const paymentMethods = [
-    { name: 'بطاقات بنكية', icon: CreditCard, color: 'text-blue-600', path: '/payment/cards', subtitle: 'Visa / MasterCard' },
-    { name: 'شام كاش / تحويل محلي', icon: Landmark, color: 'text-emerald-600', path: '/payment/local', subtitle: 'متوفر في سوريا' },
+    { name: 'بطاقات بنكية', icon: CreditCard, color: 'text-blue-600', path: '/payment-methods', subtitle: 'Visa / MasterCard' },
+    { name: 'شام كاش / تحويل محلي', icon: Landmark, color: 'text-emerald-600', path: '/payment-methods', subtitle: 'متوفر في سوريا' },
   ]
 
   if (loading) return (
@@ -147,10 +182,36 @@ export default function AdvancedProfilePage() {
               <h2 className="text-3xl font-black text-gray-900">{profile?.wallet_balance?.toFixed(2) || '0.00'} <span className="text-sm font-bold text-emerald-600">€</span></h2>
             </div>
           </div>
-          <button onClick={() => router.push('/payment/local')} className="bg-gray-900 text-white px-5 py-3 rounded-2xl text-xs font-black shadow-lg active:scale-95 transition-all">
+          <button onClick={() => router.push('/payment-methods')} className="bg-gray-900 text-white px-5 py-3 rounded-2xl text-xs font-black shadow-lg active:scale-95 transition-all">
             شحن <CreditCard size={14} className="inline mr-1" />
           </button>
         </div>
+
+        {/* إحصائيات الأثر البيئي والتوفير (تظهر للزبائن فقط) */}
+        {userRole !== 'merchant' && (
+          <div className="space-y-3">
+            <h2 className="text-xs font-black text-gray-400 mr-4 mb-2 uppercase italic tracking-wider flex items-center gap-1">
+              <Leaf size={14} className="text-emerald-500" /> أثرك الإيجابي المباشر
+            </h2>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="bg-white p-5 rounded-[30px] border border-gray-100 shadow-sm text-center">
+                <div className="w-10 h-10 bg-orange-50 text-orange-500 rounded-full flex items-center justify-center mx-auto mb-3">
+                  <TrendingDown size={20} />
+                </div>
+                <span className="block text-2xl font-black text-gray-900">{stats.co2Saved} <span className="text-xs text-gray-400">kg</span></span>
+                <span className="text-[10px] font-bold text-gray-500 mt-1 block">انبعاثات منعتها</span>
+              </div>
+              
+              <div className="bg-white p-5 rounded-[30px] border border-gray-100 shadow-sm text-center">
+                <div className="w-10 h-10 bg-blue-50 text-blue-500 rounded-full flex items-center justify-center mx-auto mb-3">
+                  <PiggyBank size={20} />
+                </div>
+                <span className="block text-2xl font-black text-gray-900">{stats.savedMoney.toFixed(1)} <span className="text-xs text-gray-400">€</span></span>
+                <span className="text-[10px] font-bold text-gray-500 mt-1 block">أموال وفرتها</span>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* أقسام المالية (تظهر للزبائن) */}
         {userRole !== 'merchant' && (
