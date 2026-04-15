@@ -1,13 +1,16 @@
 'use client'
 import React, { useEffect, useState } from 'react'
 import { createClient } from '@supabase/supabase-js'
-import { ShieldCheck, CheckCircle, XCircle, Star, Loader2, Clock, Package } from 'lucide-react'
+import { ShieldCheck, CheckCircle, XCircle, Star, Loader2, Clock, Package, ArrowRight, Eye } from 'lucide-react'
+import { useRouter } from 'next/navigation'
 
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
 
 export default function AdminMealsPage() {
   const [pendingMeals, setPendingMeals] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [actionLoading, setActionLoading] = useState<number | null>(null)
+  const router = useRouter()
 
   const fetchPending = async () => {
     setLoading(true)
@@ -23,23 +26,30 @@ export default function AdminMealsPage() {
   useEffect(() => { fetchPending() }, [])
 
   const updateStatus = async (id: number, approved: boolean, featured: boolean = false) => {
-    if (approved) {
-      // تحديث حالة الموافقة وحالة التمييز معاً
-      const { error } = await supabase.from('meals').update({ is_approved: true, is_featured: featured }).eq('id', id)
-      if (!error) {
-        alert(featured ? "🏆 تم تفعيل العرض كعرض متميز في الرئيسية" : "✅ تم تفعيل العرض في صفحة التصفح")
-        setPendingMeals(pendingMeals.filter(m => m.id !== id))
-      } else {
-        alert("حدث خطأ، تأكد من وجود عمود is_featured في قاعدة البيانات.")
-      }
-    } else {
-      if (confirm("هل أنت متأكد من رفض وحذف هذا العرض نهائياً؟")) {
-        const { error } = await supabase.from('meals').delete().eq('id', id)
+    setActionLoading(id)
+    try {
+      if (approved) {
+        // تحديث حالة الموافقة وحالة التمييز معاً
+        const { error } = await supabase.from('meals').update({ is_approved: true, is_featured: featured }).eq('id', id)
         if (!error) {
-          alert("❌ تم حذف العرض بنجاح")
+          alert(featured ? "🏆 تم تفعيل العرض كعرض متميز في الرئيسية" : "✅ تم تفعيل العرض في صفحة التصفح")
           setPendingMeals(pendingMeals.filter(m => m.id !== id))
+        } else {
+          alert("حدث خطأ! تأكد من إضافة عمود 'is_featured' (نوع BOOLEAN) في جدول meals في Supabase.")
+        }
+      } else {
+        if (confirm("هل أنت متأكد من رفض وحذف هذا العرض نهائياً؟")) {
+          const { error } = await supabase.from('meals').delete().eq('id', id)
+          if (!error) {
+            alert("❌ تم حذف العرض بنجاح")
+            setPendingMeals(pendingMeals.filter(m => m.id !== id))
+          }
         }
       }
+    } catch (err) {
+      alert("حدث خطأ غير متوقع.")
+    } finally {
+      setActionLoading(null)
     }
   }
 
@@ -49,6 +59,9 @@ export default function AdminMealsPage() {
       {/* هيدر الإدارة الفاخر */}
       <div className="pt-10 mb-8 border-b border-slate-800 pb-6 flex justify-between items-end relative z-10">
         <div>
+          <button onClick={() => router.back()} className="bg-slate-800 p-2 rounded-xl mb-4 text-slate-300 hover:text-white transition-colors active:scale-95">
+            <ArrowRight size={20} />
+          </button>
           <h1 className="text-2xl font-black flex items-center gap-2">إدارة العروض <ShieldCheck className="text-emerald-400" /></h1>
           <p className="text-slate-400 text-xs mt-2 font-bold italic">مراجعة المنتجات والوجبات قبل النشر</p>
         </div>
@@ -73,11 +86,17 @@ export default function AdminMealsPage() {
           {pendingMeals.map((meal) => (
             <div key={meal.id} className="bg-slate-800/50 backdrop-blur-md rounded-[40px] overflow-hidden border border-slate-700 shadow-2xl transition-all hover:border-emerald-500/30 group">
               
-              {/* صورة العرض مع تدرج لوني داكن */}
+              {/* صورة العرض مع تدرج لوني داكن ومعاينة */}
               <div className="relative h-56">
                 <img src={meal.image_url || 'https://via.placeholder.com/500'} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity duration-500" alt={meal.name} />
                 <div className="absolute inset-0 bg-gradient-to-t from-[#0f172a] via-[#0f172a]/40 to-transparent"></div>
-                <div className="absolute bottom-4 right-6">
+                
+                {/* زر معاينة الصورة */}
+                <a href={meal.image_url} target="_blank" className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white font-black text-xs gap-2 z-10">
+                  <Eye size={24} /> 
+                </a>
+
+                <div className="absolute bottom-4 right-6 z-20">
                    <span className="bg-emerald-500 text-white text-[10px] font-black px-3 py-1.5 rounded-full shadow-lg">{meal.category}</span>
                 </div>
               </div>
@@ -114,13 +133,13 @@ export default function AdminMealsPage() {
 
                 {/* أزرار الإجراءات الفاخرة */}
                 <div className="grid grid-cols-2 gap-3">
-                  <button onClick={() => updateStatus(meal.id, true, false)} className="bg-slate-700/80 hover:bg-emerald-600 text-white p-4 rounded-2xl font-black text-xs transition-all flex items-center justify-center gap-2 border border-slate-600 hover:border-emerald-500 active:scale-95">
-                    <CheckCircle size={16} /> تفعيل عادي
+                  <button disabled={actionLoading === meal.id} onClick={() => updateStatus(meal.id, true, false)} className="bg-slate-700/80 hover:bg-emerald-600 text-white p-4 rounded-2xl font-black text-xs transition-all flex items-center justify-center gap-2 border border-slate-600 hover:border-emerald-500 active:scale-95 disabled:opacity-50">
+                    {actionLoading === meal.id ? <Loader2 size={16} className="animate-spin" /> : <><CheckCircle size={16} /> تفعيل عادي</>}
                   </button>
-                  <button onClick={() => updateStatus(meal.id, true, true)} className="bg-amber-500/90 hover:bg-amber-400 text-slate-900 p-4 rounded-2xl font-black text-xs transition-all flex items-center justify-center gap-2 active:scale-95 shadow-[0_0_15px_rgba(245,158,11,0.2)]">
-                    <Star size={16} fill="currentColor" /> تفعيل + تمييز
+                  <button disabled={actionLoading === meal.id} onClick={() => updateStatus(meal.id, true, true)} className="bg-amber-500/90 hover:bg-amber-400 text-slate-900 p-4 rounded-2xl font-black text-xs transition-all flex items-center justify-center gap-2 active:scale-95 shadow-[0_0_15px_rgba(245,158,11,0.2)] disabled:opacity-50">
+                    {actionLoading === meal.id ? <Loader2 size={16} className="animate-spin" /> : <><Star size={16} fill="currentColor" /> تفعيل + تمييز</>}
                   </button>
-                  <button onClick={() => updateStatus(meal.id, false)} className="col-span-2 bg-rose-500/10 text-rose-500 hover:bg-rose-600 hover:text-white p-4 rounded-2xl font-black text-xs transition-all mt-1 border border-rose-500/20 active:scale-95">
+                  <button disabled={actionLoading === meal.id} onClick={() => updateStatus(meal.id, false)} className="col-span-2 bg-rose-500/10 text-rose-500 hover:bg-rose-600 hover:text-white p-4 rounded-2xl font-black text-xs transition-all mt-1 border border-rose-500/20 active:scale-95 disabled:opacity-50">
                     <XCircle size={16} /> رفض وحذف العرض
                   </button>
                 </div>
