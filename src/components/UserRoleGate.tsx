@@ -18,7 +18,7 @@ export default function UserRoleGate({ children }: { children: React.ReactNode }
   const checkAccess = async () => {
     const { data: { user } } = await supabase.auth.getUser()
     
-    // 1. إذا كان في صفحات الترحيب أو الدخول، اتركه يكمل
+    // 1. السماح بمرور المسارات العامة (الترحيب والدخول)
     if (pathname === '/welcome' || pathname.startsWith('/auth')) {
       setLoading(false)
       return
@@ -30,7 +30,7 @@ export default function UserRoleGate({ children }: { children: React.ReactNode }
       return
     }
 
-    // 3. جلب صلاحية المستخدم من قاعدة البيانات
+    // 3. جلب صلاحية المستخدم الحالية من قاعدة البيانات
     const { data: profile } = await supabase
       .from('profiles')
       .select('role')
@@ -39,25 +39,35 @@ export default function UserRoleGate({ children }: { children: React.ReactNode }
 
     const role = profile?.role
 
-    // 4. قوانين الدخول الصارمة
+    // ==========================================
+    // 4. قوانين الدخول الصارمة (النسخة الإدارية)
+    // ==========================================
+
+    // أ. حماية مسارات الإدارة (حصرية للأدمن فقط)
     if (pathname.startsWith('/admin') && role !== 'admin') {
-      router.replace('/') // منع غير الأدمن من دخول صفحات الإدارة
+      router.replace('/')
       return
     }
 
-    if (pathname.startsWith('/merchant') && role !== 'merchant') {
-      router.replace('/') // منع غير التاجر من دخول صفحات التجار
+    // ب. حماية مسارات التاجر (للتاجر + الأدمن)
+    // أضفنا مسار /add-meal لحمايته أيضاً من الزبائن العاديين
+    const isMerchantRoute = pathname.startsWith('/merchant') || pathname.startsWith('/add-meal');
+    
+    if (isMerchantRoute && role !== 'merchant' && role !== 'admin') {
+      router.replace('/') // طرد الزبون، والسماح للتاجر وللمدير
       return
     }
 
+    // إذا تجاوز كل الفحوصات بنجاح، اسمح له بالدخول
     setLoading(false)
   }
 
+  // شاشة التحميل الأنيقة أثناء الفحص
   if (loading) {
     return (
-      <div className="min-h-screen bg-white flex flex-col items-center justify-center text-emerald-600">
-        <Loader2 className="animate-spin w-10 h-10 mb-2" />
-        <span className="text-xs font-black italic">جاري التحقق من الصلاحيات...</span>
+      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center text-emerald-600">
+        <Loader2 className="animate-spin w-12 h-12 mb-3 shadow-sm rounded-full" />
+        <span className="text-sm font-black italic tracking-wide">جاري التحقق من الصلاحيات الأمنية... 🛡️</span>
       </div>
     )
   }
