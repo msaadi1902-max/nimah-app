@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { ShoppingCart, Trash2, Receipt, Heart, ArrowRight, Loader2 } from "lucide-react";
+import { ShoppingCart, Trash2, Receipt, Heart, ArrowRight, Loader2, Wallet } from "lucide-react";
 import { useCart } from "../context/CartContext";
 import BottomNav from "@/components/BottomNav";
 import { useRouter } from "next/navigation";
@@ -48,13 +48,13 @@ function CartItems() {
 
   return (
     <div className="p-4 space-y-4">
-      {cart.map((item) => (
+      {cart.map((item: any) => (
         <div key={item.id} className="flex items-center gap-4 bg-white p-4 rounded-[25px] border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
           <div className="w-20 h-20 bg-emerald-50 rounded-2xl overflow-hidden flex items-center justify-center">
-            {item.image.startsWith('http') ? (
+            {item.image?.startsWith('http') ? (
               <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
             ) : (
-              <span className="text-4xl">{item.image}</span>
+              <span className="text-4xl">{item.image || '🍱'}</span>
             )}
           </div>
           <div className="flex-1">
@@ -82,16 +82,16 @@ function CheckoutSection() {
   const [isCustom, setIsCustom] = useState<boolean>(false);
   const [customAmount, setCustomAmount] = useState<string>("");
   
-  const subtotal = cart.reduce((total, item) => total + (Number(item.price) || 0), 0);
+  const subtotal = cart.reduce((total: number, item: any) => total + (Number(item.price) || 0), 0);
   const serviceFee = cart.length > 0 ? 0.50 : 0;
-  const total = subtotal + serviceFee + donation; 
+  const totalCost = subtotal + serviceFee + donation; 
 
   if (cart.length === 0) return null;
 
-  // دالة إتمام الطلب ومعالجة البيانات في قاعدة البيانات
   const handleCheckout = async () => {
     setLoading(true);
     try {
+      // 1. جلب بيانات المستخدم ورصيده
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         alert("يرجى تسجيل الدخول كزبون أولاً لحجز العروض.");
@@ -99,27 +99,50 @@ function CheckoutSection() {
         return;
       }
 
-      // 1. إرسال الطلبات إلى جدول orders
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('wallet_balance')
+        .eq('id', user.id)
+        .single();
+
+      const currentBalance = profile?.wallet_balance || 0;
+
+      // 2. التحقق من كفاية الرصيد
+      if (currentBalance < totalCost) {
+        alert(`عذراً، رصيدك غير كافٍ. المبلغ المطلوب: ${totalCost.toFixed(2)}€، رصيدك الحالي: ${currentBalance.toFixed(2)}€`);
+        router.push('/payment-methods');
+        return;
+      }
+
+      // 3. خصم المبلغ من المحفظة
+      const newBalance = currentBalance - totalCost;
+      const { error: balanceError } = await supabase
+        .from('profiles')
+        .update({ wallet_balance: newBalance })
+        .eq('id', user.id);
+
+      if (balanceError) throw new Error("فشل في تحديث رصيد المحفظة");
+
+      // 4. إرسال الطلبات وتحديث المخزون
       for (const item of cart) {
         const { error: orderError } = await supabase.from('orders').insert([{
           customer_email: user.email,
           meal_name: item.name,
           price: item.price,
           status: 'pending',
-          merchant_id: 'auto_fetch', // سيتم ربطه برمجياً لاحقاً
-          donation_amount: donation / cart.length // توزيع التبرع على العناصر
+          merchant_id: item.merchant_id || 'unknown',
+          donation_amount: donation / cart.length
         }]);
 
         if (orderError) throw orderError;
 
-        // 2. تحديث المخزون (إنقاص الكمية)
         const { data: mealData } = await supabase.from('meals').select('quantity').eq('id', item.id).single();
         if (mealData) {
           await supabase.from('meals').update({ quantity: mealData.quantity - 1 }).eq('id', item.id);
         }
       }
 
-      alert("تم تأكيد الحجز بنجاح! 🎉");
+      alert("تم الحجز وخصم المبلغ من محفظتك بنجاح! 🎉");
       clearCart();
       router.push('/tickets');
     } catch (error: any) {
@@ -213,7 +236,7 @@ function CheckoutSection() {
 
       <div className="flex justify-between items-center mb-8 px-2 text-xl font-black text-gray-900 border-t border-dashed border-gray-200 pt-5">
         <span>الإجمالي</span>
-        <span className="text-emerald-600 text-2xl">€{total.toFixed(2)}</span>
+        <span className="text-emerald-600 text-2xl">€{totalCost.toFixed(2)}</span>
       </div>
       
       <button 

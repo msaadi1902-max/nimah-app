@@ -2,12 +2,14 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
+// تعريف شكل الوجبة (الآن يدعم رقم التاجر لتفادي أخطاء السلة)
 type Deal = {
   id: string;
   name: string;
   store: string;
   price: number;
   image: string;
+  merchant_id?: string; // هذا هو السطر الذي أضفناه لحل المشكلة ✅
 };
 
 type CartContextType = {
