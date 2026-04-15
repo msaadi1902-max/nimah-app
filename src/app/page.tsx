@@ -1,7 +1,7 @@
 'use client'
 import React, { useEffect, useState } from 'react'
 import { createClient } from '@supabase/supabase-js'
-import { Search, MapPin, Clock, ShoppingBag, Flame, Loader2, Store, Plus, Star } from 'lucide-react'
+import { Search, MapPin, Clock, ShoppingBag, Flame, Loader2, Store, Plus, Star, Sparkles } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import BottomNav from '@/components/BottomNav'
 import { useCart } from './context/CartContext'
@@ -14,7 +14,7 @@ export default function HomePage() {
   const [meals, setMeals] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedCategory, setSelectedCategory] = useState('الكل')
-  const [searchQuery, setSearchQuery] = useState('') // حالة البحث الجديدة
+  const [searchQuery, setSearchQuery] = useState('')
   const router = useRouter()
   
   const { addToCart, cart } = useCart()
@@ -23,13 +23,12 @@ export default function HomePage() {
     fetchMealsAndRatings()
   }, [selectedCategory])
 
-  // دالة متطورة تجلب الوجبات وتحسب تقييم كل تاجر
   const fetchMealsAndRatings = async () => {
     setLoading(true)
     let query = supabase
       .from('meals')
       .select('*')
-      .eq('is_approved', true)
+      .eq('is_approved', true) // فقط العروض الموافق عليها
       .gt('quantity', 0)
       .order('id', { ascending: false })
 
@@ -57,7 +56,6 @@ export default function HomePage() {
     setLoading(false)
   }
 
-  // دالة الإضافة للسلة (تم إضافة merchant_id لتجنب أخطاء السلة)
   const handleAddToCart = (meal: any) => {
     addToCart({
       id: meal.id.toString(),
@@ -69,16 +67,19 @@ export default function HomePage() {
     })
   }
 
-  // فلترة الوجبات حسب البحث
+  // فلترة العروض
   const filteredMeals = meals.filter(meal => 
     meal.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
     meal.category.includes(searchQuery)
   )
 
+  // استخراج العروض المميزة
+  const featuredMeals = meals.filter(meal => meal.is_featured === true)
+
   return (
     <div className="min-h-screen bg-gray-50 pb-28 text-right font-sans" dir="rtl">
       
-      {/* الهيدر المطور مع عداد السلة ومحرك البحث */}
+      {/* الهيدر الأنيق ومحرك البحث */}
       <div className="bg-emerald-600 px-6 pt-12 pb-6 rounded-b-[40px] shadow-lg relative overflow-hidden">
         <div className="absolute top-0 right-0 w-40 h-40 bg-white/10 rounded-full -mr-20 -mt-20 blur-2xl"></div>
         
@@ -133,7 +134,49 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* قائمة العروض */}
+      {/* قسم العروض المميزة 🏆 (يظهر فقط إذا كان هناك عروض ولم نقم بالبحث) */}
+      {!searchQuery && selectedCategory === 'الكل' && featuredMeals.length > 0 && (
+        <div className="px-6 mt-6">
+          <h2 className="text-lg font-black text-gray-900 mb-4 flex items-center gap-2">
+            <Sparkles size={20} className="text-amber-500 fill-amber-500 animate-pulse" /> عروض مميزة وحصرية 🏆
+          </h2>
+          
+          <div className="flex gap-4 overflow-x-auto hide-scrollbar pb-4 snap-x">
+            {featuredMeals.map((meal) => (
+              <div key={`feat-${meal.id}`} className="min-w-[280px] bg-slate-900 text-white rounded-[35px] overflow-hidden shadow-xl border border-slate-800 relative snap-center group">
+                
+                {/* شارة التميز */}
+                <div className="absolute top-4 right-4 z-10 bg-amber-500 text-slate-900 text-[10px] font-black px-3 py-1.5 rounded-full shadow-[0_0_15px_rgba(245,158,11,0.5)]">
+                  عرض خاص 🔥
+                </div>
+                
+                <div className="h-36 bg-gray-800 relative overflow-hidden">
+                  <img src={meal.image_url} alt={meal.name} className="w-full h-full object-cover opacity-80 group-hover:scale-110 transition-transform duration-700" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-transparent to-transparent"></div>
+                </div>
+                
+                <div className="p-5 relative z-10 -mt-6">
+                  <h3 className="text-lg font-black text-white mb-1 leading-tight">{meal.name}</h3>
+                  <div className="flex justify-between items-end mt-3">
+                    <div className="text-left">
+                      <p className="text-2xl font-black text-amber-400">{meal.discounted_price} €</p>
+                      <p className="text-[10px] font-bold text-slate-400 line-through">{meal.original_price} €</p>
+                    </div>
+                    <button 
+                      onClick={() => handleAddToCart(meal)}
+                      className="bg-amber-500 hover:bg-amber-400 text-slate-900 px-4 py-2 rounded-xl text-xs font-black shadow-lg active:scale-95 transition-all flex items-center gap-1"
+                    >
+                      <Plus size={14} /> إضافة
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* قائمة العروض العادية الحية */}
       <div className="p-6">
         <h2 className="text-lg font-black text-gray-900 mb-4 flex items-center gap-2">
           <Flame size={20} className="text-rose-500" /> عروض السوق الحية 🔥
@@ -151,15 +194,15 @@ export default function HomePage() {
         ) : (
           <div className="space-y-5">
             {filteredMeals.map((meal) => (
-              <div key={meal.id} className="bg-white rounded-[35px] overflow-hidden shadow-sm border border-gray-100 relative group animate-in slide-in-from-bottom-4 duration-500">
+              <div key={`norm-${meal.id}`} className="bg-white rounded-[35px] overflow-hidden shadow-sm border border-gray-100 relative group animate-in slide-in-from-bottom-4 duration-500 hover:shadow-md transition-shadow">
                 
                 {/* شارة الخصم */}
-                <div className="absolute top-4 right-4 z-10 bg-rose-500 text-white text-[10px] font-black px-3 py-1.5 rounded-full shadow-lg">
+                <div className="absolute top-4 right-4 z-10 bg-rose-500 text-white text-[10px] font-black px-3 py-1.5 rounded-full shadow-sm">
                   وفر {meal.original_price > 0 ? Math.round(((meal.original_price - meal.discounted_price) / meal.original_price) * 100) : 0}%
                 </div>
 
                 {/* شارة التقييم ⭐ */}
-                <div className="absolute top-4 left-4 z-10 bg-white/90 backdrop-blur text-gray-900 text-[10px] font-black px-3 py-1.5 rounded-full shadow-lg flex items-center gap-1">
+                <div className="absolute top-4 left-4 z-10 bg-white/90 backdrop-blur text-gray-900 text-[10px] font-black px-3 py-1.5 rounded-full shadow-sm flex items-center gap-1">
                   <Star size={12} className={meal.rating === 'جديد' ? 'text-gray-400' : 'text-amber-500 fill-amber-500'} />
                   {meal.rating}
                 </div>
@@ -186,7 +229,7 @@ export default function HomePage() {
                   <div className="flex gap-3 items-center pt-2">
                     <button 
                       onClick={() => handleAddToCart(meal)}
-                      className="flex-1 bg-emerald-600 text-white py-4 rounded-2xl text-sm font-black active:scale-95 transition-all shadow-lg shadow-emerald-200 flex justify-center items-center gap-2"
+                      className="flex-1 bg-emerald-600 text-white py-4 rounded-2xl text-sm font-black active:scale-95 transition-all shadow-md shadow-emerald-100 flex justify-center items-center gap-2 hover:bg-emerald-700"
                     >
                       <Plus size={18} /> أضف للسلة
                     </button>
