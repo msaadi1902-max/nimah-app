@@ -7,13 +7,6 @@ import BottomNav from '@/components/BottomNav'
 
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
 
-// مصفوفة العملات المدعومة
-const CURRENCIES = [
-  { code: 'SYP', name: 'ليرة سورية (SYP)' },
-  { code: 'USD', name: 'دولار أمريكي (USD)' },
-  { code: 'EUR', name: 'يورو (EUR)' },
-]
-
 export default function AddMealPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
@@ -21,7 +14,7 @@ export default function AddMealPage() {
   // الحالات الأساسية
   const [name, setName] = useState('')
   const [category, setCategory] = useState('مطاعم')
-  const [currency, setCurrency] = useState('SYP')
+  const [currency, setCurrency] = useState('ل.س') // تم تحويله لنص حر يكتبه التاجر
   const [originalPrice, setOriginalPrice] = useState('')
   const [discountedPrice, setDiscountedPrice] = useState('')
   const [quantity, setQuantity] = useState('')
@@ -66,16 +59,16 @@ export default function AddMealPage() {
       // جلب الرابط العام للصورة
       const { data: publicUrl } = supabase.storage.from('product-images').getPublicUrl(fileName)
       
-      // 2. حفظ بيانات العرض في قاعدة البيانات مع الحقول الجديدة
+      // 2. حفظ بيانات العرض في قاعدة البيانات مع الحقول المحدثة
       const { error } = await supabase.from('meals').insert([{
         name: name,
         category: category,
-        currency: currency, // إضافة العملة
+        currency: currency, // إضافة العملة التي كتبها التاجر
         original_price: parseFloat(originalPrice),
         discounted_price: parseFloat(discountedPrice),
         quantity: parseInt(quantity),
-        start_date: startDate, // إضافة تاريخ البداية
-        end_date: endDate, // إضافة تاريخ النهاية
+        start_date: startDate, // تاريخ بداية العرض
+        end_date: endDate, // تاريخ نهاية العرض
         pickup_time: pickupTime, 
         is_approved: false, 
         merchant_id: user.id,
@@ -142,7 +135,7 @@ export default function AddMealPage() {
             <input value={name} onChange={(e) => setName(e.target.value)} type="text" required placeholder="مثال: قميص قطني، وجبة شاورما..." className="w-full bg-gray-50 border border-gray-100 p-3.5 rounded-xl text-sm font-bold outline-none focus:border-emerald-500 focus:bg-white transition-all" />
           </div>
 
-          {/* التصنيف والعملة (مدمجة بجانب بعضها) */}
+          {/* التصنيف والعملة */}
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="text-xs font-black text-gray-700 mb-1.5 flex items-center gap-1.5">
@@ -158,16 +151,15 @@ export default function AddMealPage() {
                 <option value="عصرونية">عصرونية (أدوات منزلية)</option>
                 <option value="موبايلات">موبايلات وإلكترونيات</option>
                 <option value="أثاث">أثاث ومفروشات</option>
-                <option value="آخر">آخر</option> {/* تم الإصلاح */}
+                <option value="آخر">آخر</option>
               </select>
             </div>
             <div>
               <label className="text-xs font-black text-gray-700 mb-1.5 flex items-center gap-1.5">
-                <Coins size={14} className="text-amber-500"/> العملة
+                <Coins size={14} className="text-amber-500"/> العملة 
               </label>
-              <select value={currency} onChange={(e) => setCurrency(e.target.value)} className="w-full bg-gray-50 border border-gray-100 p-3.5 rounded-xl text-sm font-bold outline-none focus:border-emerald-500 focus:bg-white transition-all cursor-pointer">
-                {CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.name}</option>)}
-              </select>
+              {/* تم تحويله لحقل إدخال حر كما طلبت */}
+              <input value={currency} onChange={(e) => setCurrency(e.target.value)} type="text" required placeholder="مثال: ليرة، دولار..." className="w-full bg-gray-50 border border-gray-100 p-3.5 rounded-xl text-sm font-bold outline-none focus:border-emerald-500 focus:bg-white transition-all" />
             </div>
           </div>
 
@@ -198,20 +190,20 @@ export default function AddMealPage() {
           {/* التاريخ والوقت (التحسينات الجديدة) */}
           <div className="border-t border-gray-100 pt-4 mt-2">
              <label className="text-xs font-black text-gray-700 mb-3 flex items-center gap-1.5">
-               <Calendar size={14} className="text-orange-500"/> مدة توفر العرض
+               <Calendar size={14} className="text-orange-500"/> الأيام المتاحة للعرض
              </label>
              <div className="grid grid-cols-2 gap-4 mb-3">
                 <div>
                   <span className="text-[10px] text-gray-400 font-bold block mb-1">من تاريخ</span>
-                  <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="w-full bg-gray-50 border border-gray-100 p-3 rounded-xl text-xs font-black outline-none focus:border-emerald-500" />
+                  <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} required className="w-full bg-gray-50 border border-gray-100 p-3 rounded-xl text-xs font-black outline-none focus:border-emerald-500" />
                 </div>
                 <div>
                   <span className="text-[10px] text-gray-400 font-bold block mb-1">إلى تاريخ</span>
-                  <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="w-full bg-gray-50 border border-gray-100 p-3 rounded-xl text-xs font-black outline-none focus:border-emerald-500" />
+                  <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} required className="w-full bg-gray-50 border border-gray-100 p-3 rounded-xl text-xs font-black outline-none focus:border-emerald-500" />
                 </div>
              </div>
              <div>
-                <span className="text-[10px] text-gray-400 font-bold block mb-1 flex items-center gap-1"><Clock size={12}/> وقت الاستلام اليومي</span>
+                <span className="text-[10px] text-gray-400 font-bold block mb-1 flex items-center gap-1"><Clock size={12}/> وقت الاستلام في هذه الأيام</span>
                 <input value={pickupTime} onChange={(e) => setPickupTime(e.target.value)} type="text" required placeholder="مثال: من 10:00 ص إلى 10:00 م" className="w-full bg-gray-50 border border-gray-100 p-3 rounded-xl text-sm font-bold outline-none focus:border-emerald-500 transition-all" />
              </div>
           </div>
