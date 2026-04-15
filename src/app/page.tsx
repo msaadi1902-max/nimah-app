@@ -1,10 +1,10 @@
 'use client'
 import React, { useEffect, useState } from 'react'
 import { createClient } from '@supabase/supabase-js'
-import { Search, MapPin, Clock, ShoppingBag, Flame, Loader2, Store, Plus } from 'lucide-react'
+import { Search, MapPin, Clock, ShoppingBag, Flame, Loader2, Store, Plus, Star } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import BottomNav from '@/components/BottomNav'
-import { useCart } from './context/CartContext' // استيراد السلة
+import { useCart } from './context/CartContext'
 
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
 
@@ -14,16 +14,17 @@ export default function HomePage() {
   const [meals, setMeals] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedCategory, setSelectedCategory] = useState('الكل')
+  const [searchQuery, setSearchQuery] = useState('') // حالة البحث الجديدة
   const router = useRouter()
   
-  // استخدام وظائف السلة
   const { addToCart, cart } = useCart()
 
   useEffect(() => {
-    fetchMeals()
+    fetchMealsAndRatings()
   }, [selectedCategory])
 
-  const fetchMeals = async () => {
+  // دالة متطورة تجلب الوجبات وتحسب تقييم كل تاجر
+  const fetchMealsAndRatings = async () => {
     setLoading(true)
     let query = supabase
       .from('meals')
@@ -36,26 +37,48 @@ export default function HomePage() {
       query = query.eq('category', selectedCategory)
     }
 
-    const { data } = await query
-    if (data) setMeals(data)
+    const { data: mealsData } = await query
+    const { data: reviewsData } = await supabase.from('reviews').select('merchant_id, rating')
+
+    if (mealsData) {
+      const mealsWithRatings = mealsData.map(meal => {
+        const merchantReviews = reviewsData?.filter(r => r.merchant_id === meal.merchant_id) || []
+        const totalRating = merchantReviews.reduce((sum, r) => sum + r.rating, 0)
+        const averageRating = merchantReviews.length > 0 ? (totalRating / merchantReviews.length).toFixed(1) : 'جديد'
+        
+        return {
+          ...meal,
+          rating: averageRating,
+          reviewsCount: merchantReviews.length
+        }
+      })
+      setMeals(mealsWithRatings)
+    }
     setLoading(false)
   }
 
-  // دالة الإضافة للسلة المحدثة
+  // دالة الإضافة للسلة (تم إضافة merchant_id لتجنب أخطاء السلة)
   const handleAddToCart = (meal: any) => {
     addToCart({
       id: meal.id.toString(),
       name: meal.name,
-      store: meal.category, // أو يمكنك جلب اسم المتجر إذا توفر
+      store: meal.category,
       price: meal.discounted_price,
-      image: meal.image_url || 'https://via.placeholder.com/150'
+      image: meal.image_url || 'https://via.placeholder.com/150',
+      merchant_id: meal.merchant_id 
     })
   }
+
+  // فلترة الوجبات حسب البحث
+  const filteredMeals = meals.filter(meal => 
+    meal.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+    meal.category.includes(searchQuery)
+  )
 
   return (
     <div className="min-h-screen bg-gray-50 pb-28 text-right font-sans" dir="rtl">
       
-      {/* الهيدر المطور مع عداد السلة */}
+      {/* الهيدر المطور مع عداد السلة ومحرك البحث */}
       <div className="bg-emerald-600 px-6 pt-12 pb-6 rounded-b-[40px] shadow-lg relative overflow-hidden">
         <div className="absolute top-0 right-0 w-40 h-40 bg-white/10 rounded-full -mr-20 -mt-20 blur-2xl"></div>
         
@@ -82,8 +105,10 @@ export default function HomePage() {
         <div className="relative z-10">
           <input 
             type="text" 
-            placeholder="ابحث عن وجبة توفير..." 
-            className="w-full bg-white/95 rounded-2xl py-4 pr-12 pl-4 text-sm font-bold text-gray-900 focus:outline-none shadow-sm"
+            placeholder="ابحث عن وجبة، متجر..." 
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full bg-white/95 rounded-2xl py-4 pr-12 pl-4 text-sm font-bold text-gray-900 focus:outline-none shadow-sm transition-all focus:ring-2 focus:ring-emerald-300"
           />
           <Search size={20} className="absolute right-4 top-4 text-emerald-600" />
         </div>
@@ -99,7 +124,7 @@ export default function HomePage() {
               className={`px-6 py-2.5 rounded-2xl text-xs font-black transition-all shadow-sm border ${
                 selectedCategory === cat 
                   ? 'bg-gray-900 text-white border-gray-900' 
-                  : 'bg-white text-gray-500 border-gray-100'
+                  : 'bg-white text-gray-500 border-gray-100 hover:bg-emerald-50'
               }`}
             >
               {cat}
@@ -118,17 +143,25 @@ export default function HomePage() {
           <div className="flex justify-center items-center py-20 text-emerald-600">
             <Loader2 className="animate-spin w-10 h-10" />
           </div>
-        ) : meals.length === 0 ? (
+        ) : filteredMeals.length === 0 ? (
           <div className="text-center bg-white p-10 rounded-[35px] border border-gray-100 shadow-sm mt-4 text-gray-400 font-bold">
             <Store size={40} className="mx-auto mb-4 opacity-20" />
-            لا توجد عروض حالياً في هذا القسم
+            {searchQuery ? 'لا توجد نتائج تطابق بحثك' : 'لا توجد عروض حالياً في هذا القسم'}
           </div>
         ) : (
           <div className="space-y-5">
-            {meals.map((meal) => (
-              <div key={meal.id} className="bg-white rounded-[35px] overflow-hidden shadow-sm border border-gray-100 relative group">
+            {filteredMeals.map((meal) => (
+              <div key={meal.id} className="bg-white rounded-[35px] overflow-hidden shadow-sm border border-gray-100 relative group animate-in slide-in-from-bottom-4 duration-500">
+                
+                {/* شارة الخصم */}
                 <div className="absolute top-4 right-4 z-10 bg-rose-500 text-white text-[10px] font-black px-3 py-1.5 rounded-full shadow-lg">
                   وفر {meal.original_price > 0 ? Math.round(((meal.original_price - meal.discounted_price) / meal.original_price) * 100) : 0}%
+                </div>
+
+                {/* شارة التقييم ⭐ */}
+                <div className="absolute top-4 left-4 z-10 bg-white/90 backdrop-blur text-gray-900 text-[10px] font-black px-3 py-1.5 rounded-full shadow-lg flex items-center gap-1">
+                  <Star size={12} className={meal.rating === 'جديد' ? 'text-gray-400' : 'text-amber-500 fill-amber-500'} />
+                  {meal.rating}
                 </div>
                 
                 <div className="h-44 bg-gray-200 relative overflow-hidden">
