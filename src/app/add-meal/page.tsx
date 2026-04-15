@@ -124,6 +124,7 @@ export default function AddMealPage() {
               <option value="عصرونية">عصرونية (أدوات منزلية)</option>
               <option value="موبايلات">موبايلات وإلكترونيات</option>
               <option value="أثاث">أثاث ومفروشات</option>
+              <option value="أثاث"> اخرى</option>
             </select>
           </div>
 

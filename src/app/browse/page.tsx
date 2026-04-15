@@ -1,7 +1,7 @@
 'use client'
 import React, { useEffect, useState } from 'react'
 import { createClient } from '@supabase/supabase-js'
-import { Search, Map as MapIcon, List, SlidersHorizontal, Store, Utensils, ShoppingCart, Flower2, Clock, Loader2, Shirt, Droplet, Package, Smartphone, Sofa } from 'lucide-react'
+import { Search, Map as MapIcon, List, SlidersHorizontal, Store, Utensils, ShoppingCart, Flower2, Clock, Loader2, Shirt, Droplet, Package, Smartphone, Sofa, Heart, X, MoreHorizontal } from 'lucide-react'
 import BottomNav from '@/components/BottomNav'
 import dynamic from 'next/dynamic'
 
@@ -13,6 +13,7 @@ const DynamicMap = dynamic(() => import('@/components/MapView'), {
   loading: () => <div className="w-full h-full flex flex-col justify-center items-center bg-emerald-50 text-emerald-600"><Loader2 className="animate-spin mb-2" size={30} /><span className="text-xs font-bold">جاري تحميل الخريطة...</span></div>
 })
 
+// إضافة قسم "آخر" كما طلبت في الملاحظة رقم 2
 const CATEGORIES = [
   { id: 'الكل', name: 'الكل', icon: Store },
   { id: 'مطاعم', name: 'مطاعم', icon: Utensils },
@@ -24,6 +25,7 @@ const CATEGORIES = [
   { id: 'عصرونية', name: 'عصرونية', icon: Package },
   { id: 'موبايلات', name: 'موبايلات', icon: Smartphone },
   { id: 'أثاث', name: 'أثاث', icon: Sofa },
+  { id: 'آخر', name: 'آخر', icon: MoreHorizontal }, 
 ]
 
 export default function BrowsePage() {
@@ -32,30 +34,68 @@ export default function BrowsePage() {
   const [loading, setLoading] = useState(true)
   const [activeCategory, setActiveCategory] = useState('الكل')
   const [searchQuery, setSearchQuery] = useState('')
+  
+  // حالات الفلتر الجديد والمفضلة
+  const [showFilter, setShowFilter] = useState(false)
+  const [sortBy, setSortBy] = useState('newest') // newest, price_low, price_high
+  const [favorites, setFavorites] = useState<number[]>([])
 
   const fetchItems = async () => {
     setLoading(true)
-    let query = supabase.from('meals').select('*').eq('is_approved', true).order('id', { ascending: false })
+    // دمج جدول الوجبات مع جدول البروفايل لجلب اسم المتجر (الملاحظة 4)
+    let query = supabase
+      .from('meals')
+      .select('*, profiles:merchant_id(shop_name)')
+      .eq('is_approved', true)
+      .gt('quantity', 0)
 
     if (activeCategory !== 'الكل') query = query.eq('category', activeCategory)
-    if (searchQuery) query = query.ilike('name', `%${searchQuery}%`)
+    
+    // تطبيق الفلتر (الملاحظة 3)
+    if (sortBy === 'newest') query = query.order('id', { ascending: false })
+    if (sortBy === 'price_low') query = query.order('discounted_price', { ascending: true })
+    if (sortBy === 'price_high') query = query.order('discounted_price', { ascending: false })
 
     const { data } = await query
-    if (data) setItems(data)
+    
+    // فلترة البحث النصي (تبحث في اسم الوجبة واسم المتجر)
+    if (data) {
+      const filtered = searchQuery 
+        ? data.filter((m: any) => 
+            m.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+            (m.profiles?.shop_name && m.profiles.shop_name.toLowerCase().includes(searchQuery.toLowerCase()))
+          )
+        : data
+      setItems(filtered)
+    }
     setLoading(false)
   }
 
   useEffect(() => {
     const delayDebounceFn = setTimeout(() => fetchItems(), 300) 
     return () => clearTimeout(delayDebounceFn)
-  }, [activeCategory, searchQuery])
+  }, [activeCategory, searchQuery, sortBy])
+
+  // دالة مؤقتة للمفضلة (تغيير لون القلب)
+  const toggleFavorite = (id: number) => {
+    if (favorites.includes(id)) {
+      setFavorites(favorites.filter(favId => favId !== id))
+    } else {
+      setFavorites([...favorites, id])
+    }
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 pb-28 font-sans text-right" dir="rtl">
       <div className="bg-white px-4 pt-10 pb-4 sticky top-0 z-20 shadow-sm rounded-b-3xl">
         <h1 className="text-2xl font-black text-gray-900 mb-4 px-2">استكشف السوق 🌍</h1>
         <div className="flex gap-2 mb-4">
-          <button className="bg-gray-50 p-3 rounded-2xl text-emerald-700 border border-gray-100 active:scale-95 transition-transform"><SlidersHorizontal size={22} /></button>
+          <button 
+            onClick={() => setShowFilter(true)}
+            className="bg-emerald-50 p-3 rounded-2xl text-emerald-700 border border-emerald-100 active:scale-95 transition-transform"
+          >
+            <SlidersHorizontal size={22} />
+          </button>
           <div className="relative flex-1">
             <input type="text" placeholder="ابحث عن متجر أو منتج..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full bg-gray-50 border border-gray-100 rounded-2xl py-3 pr-12 pl-4 text-sm font-bold text-gray-900 focus:border-emerald-500 focus:outline-none" />
             <Search size={20} className="absolute right-4 top-3.5 text-gray-400" />
@@ -96,7 +136,16 @@ export default function BrowsePage() {
               ) : (
                 <div className="grid grid-cols-2 gap-4 pb-10">
                   {items.map((item) => (
-                    <div key={item.id} className="bg-white rounded-3xl overflow-hidden shadow-sm border border-gray-100 active:scale-[0.98] transition-transform flex flex-col">
+                    <div key={item.id} className="bg-white rounded-3xl overflow-hidden shadow-sm border border-gray-100 transition-transform flex flex-col relative group">
+                      
+                      {/* زر المفضلة (الملاحظة 4) */}
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); toggleFavorite(item.id); }}
+                        className="absolute top-2 left-2 z-10 bg-white/90 backdrop-blur p-2 rounded-full shadow-sm transition-colors"
+                      >
+                        <Heart size={16} className={favorites.includes(item.id) ? 'text-rose-500 fill-rose-500' : 'text-gray-400'} />
+                      </button>
+
                       <div className="h-32 relative bg-gray-100">
                         <img src={item.image_url} alt={item.name} className="w-full h-full object-cover" />
                         <div className="absolute top-2 right-2 bg-rose-500 text-white px-2 py-1 rounded-xl text-[10px] font-black shadow-sm">
@@ -105,7 +154,10 @@ export default function BrowsePage() {
                       </div>
                       <div className="p-3 flex-1 flex flex-col justify-between">
                         <div>
-                          <p className="text-[9px] font-black text-emerald-600 mb-1">{item.category}</p>
+                          {/* عرض اسم المتجر الحقيقي (الملاحظة 4) */}
+                          <p className="text-[9px] font-black text-emerald-600 mb-1 flex items-center gap-1 truncate">
+                            <Store size={10} /> {item.profiles?.shop_name || item.category}
+                          </p>
                           <h3 className="font-black text-sm text-gray-900 leading-tight mb-2 line-clamp-2">{item.name}</h3>
                         </div>
                         <div className="flex justify-between items-end mt-2">
@@ -124,6 +176,35 @@ export default function BrowsePage() {
           </div>
         )}
       </div>
+
+      {/* نافذة الفلتر المنبثقة (الملاحظة 3) */}
+      {showFilter && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-end animate-in fade-in duration-300">
+          <div className="bg-white w-full rounded-t-[40px] p-6 pb-10 animate-in slide-in-from-bottom-10 duration-300">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-lg font-black text-gray-900">ترتيب العروض حسب</h2>
+              <button onClick={() => setShowFilter(false)} className="bg-gray-100 p-2 rounded-full text-gray-500 active:scale-90"><X size={20}/></button>
+            </div>
+            <div className="space-y-3">
+              {[
+                { id: 'newest', label: 'الأحدث أولاً' },
+                { id: 'price_low', label: 'السعر: من الأرخص للأغلى' },
+                { id: 'price_high', label: 'السعر: من الأغلى للأرخص' }
+              ].map((opt) => (
+                <button 
+                  key={opt.id}
+                  onClick={() => { setSortBy(opt.id); setShowFilter(false); }}
+                  className={`w-full p-4 rounded-2xl text-right font-black text-sm transition-all flex justify-between items-center ${sortBy === opt.id ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-100' : 'bg-gray-50 text-gray-600 hover:bg-gray-100'}`}
+                >
+                  {opt.label}
+                  {sortBy === opt.id && <div className="w-2 h-2 bg-white rounded-full"></div>}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       <BottomNav activeTab="browse" />
     </div>
   )

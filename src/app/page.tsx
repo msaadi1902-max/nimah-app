@@ -8,8 +8,7 @@ import { useCart } from './context/CartContext'
 
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
 
-const CATEGORIES = ['الكل', 'مطاعم', 'مخابز', 'حلويات', 'بقالة', 'ألبسة', 'عطور', 'عصرونية', 'موبايلات', 'أثاث']
-
+const CATEGORIES = ['الكل', 'مطاعم', 'مخابز', 'حلويات', 'بقالة', 'ألبسة', 'عطور', 'عصرونية', 'موبايلات', 'أثاث', 'آخر']
 export default function HomePage() {
   const [meals, setMeals] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
