@@ -1,7 +1,7 @@
 'use client'
 import React, { useEffect, useState } from 'react'
 import { createClient } from '@supabase/supabase-js'
-import { Search, MapPin, Clock, ShoppingBag, Flame, Loader2, Store, Plus, Star, Sparkles } from 'lucide-react'
+import { Search, MapPin, Clock, ShoppingBag, Flame, Loader2, Store, Plus, Star, Sparkles, Calendar } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import BottomNav from '@/components/BottomNav'
 import { useCart } from './context/CartContext'
@@ -9,6 +9,7 @@ import { useCart } from './context/CartContext'
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
 
 const CATEGORIES = ['الكل', 'مطاعم', 'مخابز', 'حلويات', 'بقالة', 'ألبسة', 'عطور', 'عصرونية', 'موبايلات', 'أثاث', 'آخر']
+
 export default function HomePage() {
   const [meals, setMeals] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -27,7 +28,7 @@ export default function HomePage() {
     let query = supabase
       .from('meals')
       .select('*')
-      .eq('is_approved', true) // فقط العروض الموافق عليها
+      .eq('is_approved', true) 
       .gt('quantity', 0)
       .order('id', { ascending: false })
 
@@ -66,19 +67,17 @@ export default function HomePage() {
     })
   }
 
-  // فلترة العروض
   const filteredMeals = meals.filter(meal => 
     meal.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
     meal.category.includes(searchQuery)
   )
 
-  // استخراج العروض المميزة
   const featuredMeals = meals.filter(meal => meal.is_featured === true)
 
   return (
     <div className="min-h-screen bg-gray-50 pb-28 text-right font-sans" dir="rtl">
       
-      {/* الهيدر الأنيق ومحرك البحث */}
+      {/* الهيدر الأنيق */}
       <div className="bg-emerald-600 px-6 pt-12 pb-6 rounded-b-[40px] shadow-lg relative overflow-hidden">
         <div className="absolute top-0 right-0 w-40 h-40 bg-white/10 rounded-full -mr-20 -mt-20 blur-2xl"></div>
         
@@ -133,7 +132,7 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* قسم العروض المميزة 🏆 (يظهر فقط إذا كان هناك عروض ولم نقم بالبحث) */}
+      {/* قسم العروض المميزة 🏆 */}
       {!searchQuery && selectedCategory === 'الكل' && featuredMeals.length > 0 && (
         <div className="px-6 mt-6">
           <h2 className="text-lg font-black text-gray-900 mb-4 flex items-center gap-2">
@@ -144,7 +143,6 @@ export default function HomePage() {
             {featuredMeals.map((meal) => (
               <div key={`feat-${meal.id}`} className="min-w-[280px] bg-slate-900 text-white rounded-[35px] overflow-hidden shadow-xl border border-slate-800 relative snap-center group">
                 
-                {/* شارة التميز */}
                 <div className="absolute top-4 right-4 z-10 bg-amber-500 text-slate-900 text-[10px] font-black px-3 py-1.5 rounded-full shadow-[0_0_15px_rgba(245,158,11,0.5)]">
                   عرض خاص 🔥
                 </div>
@@ -158,8 +156,9 @@ export default function HomePage() {
                   <h3 className="text-lg font-black text-white mb-1 leading-tight">{meal.name}</h3>
                   <div className="flex justify-between items-end mt-3">
                     <div className="text-left">
-                      <p className="text-2xl font-black text-amber-400">{meal.discounted_price} €</p>
-                      <p className="text-[10px] font-bold text-slate-400 line-through">{meal.original_price} €</p>
+                      {/* دمج العملة الديناميكية هنا */}
+                      <p className="text-2xl font-black text-amber-400">{meal.discounted_price} {meal.currency || 'ل.س'}</p>
+                      <p className="text-[10px] font-bold text-slate-400 line-through">{meal.original_price} {meal.currency || 'ل.س'}</p>
                     </div>
                     <button 
                       onClick={() => handleAddToCart(meal)}
@@ -214,14 +213,23 @@ export default function HomePage() {
                   <div className="flex justify-between items-start mb-4">
                     <div>
                       <h3 className="text-lg font-black text-gray-900 mb-1">{meal.name}</h3>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 mb-1">
                          <span className="text-[10px] font-black text-emerald-600 bg-emerald-50 px-2 py-1 rounded-lg">{meal.category}</span>
                          <span className="text-[10px] font-bold text-gray-400 flex items-center gap-1"><Clock size={12}/> {meal.pickup_time}</span>
                       </div>
+                      
+                      {/* دمج تواريخ الصلاحية هنا بشكل أنيق */}
+                      {meal.start_date && meal.end_date && (
+                        <p className="text-[9px] text-gray-500 font-bold flex items-center gap-1 mt-1 bg-gray-50 w-fit px-2 py-1 rounded-md">
+                          <Calendar size={10} className="text-orange-400" /> صالح من {meal.start_date} لـ {meal.end_date}
+                        </p>
+                      )}
                     </div>
-                    <div className="text-left">
-                      <p className="text-2xl font-black text-gray-900">{meal.discounted_price} €</p>
-                      <p className="text-xs font-bold text-gray-400 line-through">{meal.original_price} €</p>
+                    
+                    <div className="text-left whitespace-nowrap mr-2">
+                      {/* دمج العملة الديناميكية هنا */}
+                      <p className="text-2xl font-black text-gray-900">{meal.discounted_price} <span className="text-base">{meal.currency || 'ل.س'}</span></p>
+                      <p className="text-xs font-bold text-gray-400 line-through">{meal.original_price} {meal.currency || 'ل.س'}</p>
                     </div>
                   </div>
 

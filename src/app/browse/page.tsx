@@ -1,7 +1,7 @@
 'use client'
 import React, { useEffect, useState } from 'react'
 import { createClient } from '@supabase/supabase-js'
-import { Search, Map as MapIcon, List, SlidersHorizontal, Store, Utensils, ShoppingCart, Flower2, Clock, Loader2, Shirt, Droplet, Package, Smartphone, Sofa, Heart, X, MoreHorizontal } from 'lucide-react'
+import { Search, Map as MapIcon, List, SlidersHorizontal, Store, Utensils, ShoppingCart, Flower2, Clock, Loader2, Shirt, Droplet, Package, Smartphone, Sofa, Heart, X, MoreHorizontal, Calendar } from 'lucide-react'
 import BottomNav from '@/components/BottomNav'
 import dynamic from 'next/dynamic'
 
@@ -13,7 +13,7 @@ const DynamicMap = dynamic(() => import('@/components/MapView'), {
   loading: () => <div className="w-full h-full flex flex-col justify-center items-center bg-emerald-50 text-emerald-600"><Loader2 className="animate-spin mb-2" size={30} /><span className="text-xs font-bold">جاري تحميل الخريطة...</span></div>
 })
 
-// إضافة قسم "آخر" كما طلبت في الملاحظة رقم 2
+// الأقسام كما طلبتها بالضبط
 const CATEGORIES = [
   { id: 'الكل', name: 'الكل', icon: Store },
   { id: 'مطاعم', name: 'مطاعم', icon: Utensils },
@@ -42,7 +42,6 @@ export default function BrowsePage() {
 
   const fetchItems = async () => {
     setLoading(true)
-    // دمج جدول الوجبات مع جدول البروفايل لجلب اسم المتجر (الملاحظة 4)
     let query = supabase
       .from('meals')
       .select('*, profiles:merchant_id(shop_name)')
@@ -51,14 +50,12 @@ export default function BrowsePage() {
 
     if (activeCategory !== 'الكل') query = query.eq('category', activeCategory)
     
-    // تطبيق الفلتر (الملاحظة 3)
     if (sortBy === 'newest') query = query.order('id', { ascending: false })
     if (sortBy === 'price_low') query = query.order('discounted_price', { ascending: true })
     if (sortBy === 'price_high') query = query.order('discounted_price', { ascending: false })
 
     const { data } = await query
     
-    // فلترة البحث النصي (تبحث في اسم الوجبة واسم المتجر)
     if (data) {
       const filtered = searchQuery 
         ? data.filter((m: any) => 
@@ -76,7 +73,6 @@ export default function BrowsePage() {
     return () => clearTimeout(delayDebounceFn)
   }, [activeCategory, searchQuery, sortBy])
 
-  // دالة مؤقتة للمفضلة (تغيير لون القلب)
   const toggleFavorite = (id: number) => {
     if (favorites.includes(id)) {
       setFavorites(favorites.filter(favId => favId !== id))
@@ -138,7 +134,6 @@ export default function BrowsePage() {
                   {items.map((item) => (
                     <div key={item.id} className="bg-white rounded-3xl overflow-hidden shadow-sm border border-gray-100 transition-transform flex flex-col relative group">
                       
-                      {/* زر المفضلة (الملاحظة 4) */}
                       <button 
                         onClick={(e) => { e.stopPropagation(); toggleFavorite(item.id); }}
                         className="absolute top-2 left-2 z-10 bg-white/90 backdrop-blur p-2 rounded-full shadow-sm transition-colors"
@@ -154,16 +149,23 @@ export default function BrowsePage() {
                       </div>
                       <div className="p-3 flex-1 flex flex-col justify-between">
                         <div>
-                          {/* عرض اسم المتجر الحقيقي (الملاحظة 4) */}
                           <p className="text-[9px] font-black text-emerald-600 mb-1 flex items-center gap-1 truncate">
                             <Store size={10} /> {item.profiles?.shop_name || item.category}
                           </p>
                           <h3 className="font-black text-sm text-gray-900 leading-tight mb-2 line-clamp-2">{item.name}</h3>
+                          
+                          {/* الإضافة الجديدة: تواريخ الصلاحية */}
+                          {item.start_date && item.end_date && (
+                            <p className="text-[8px] text-gray-500 font-bold flex items-center gap-1 mt-1 bg-gray-50 w-fit px-1.5 py-0.5 rounded-md">
+                              <Calendar size={8} className="text-orange-400" /> من {item.start_date} لـ {item.end_date}
+                            </p>
+                          )}
                         </div>
                         <div className="flex justify-between items-end mt-2">
                           <div>
-                            <span className="block text-gray-400 text-[10px] line-through font-bold">{item.original_price} €</span>
-                            <span className="font-black text-emerald-700 text-base">{item.discounted_price} €</span>
+                            {/* الإضافة الجديدة: العملة الديناميكية */}
+                            <span className="block text-gray-400 text-[10px] line-through font-bold">{item.original_price} {item.currency || 'ل.س'}</span>
+                            <span className="font-black text-emerald-700 text-base">{item.discounted_price} {item.currency || 'ل.س'}</span>
                           </div>
                           <div className="bg-gray-50 p-1.5 rounded-lg text-gray-500 border border-gray-100"><Clock size={14} /></div>
                         </div>
@@ -177,7 +179,6 @@ export default function BrowsePage() {
         )}
       </div>
 
-      {/* نافذة الفلتر المنبثقة (الملاحظة 3) */}
       {showFilter && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-end animate-in fade-in duration-300">
           <div className="bg-white w-full rounded-t-[40px] p-6 pb-10 animate-in slide-in-from-bottom-10 duration-300">
