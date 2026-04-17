@@ -6,7 +6,7 @@ import {
   UserCircle, Wallet, CreditCard, Ticket, Bell, Gift, 
   Store, Info, Share2, LogOut, ChevronLeft, Heart,
   Landmark, ShieldCheck, Loader2, Sparkles, Settings,
-  Leaf, TrendingDown, PiggyBank
+  Leaf, TrendingDown, PiggyBank, Headphones, X, CheckCircle
 } from 'lucide-react'
 import BottomNav from '@/components/BottomNav'
 
@@ -18,12 +18,24 @@ export default function AdvancedProfilePage() {
   const [userRole, setUserRole] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   
-  // حالة الإحصائيات (للزبائن فقط)
   const [stats, setStats] = useState({
     rescuedMeals: 0,
     savedMoney: 0,
     co2Saved: 0
   })
+
+  // === حالات النوافذ المنبثقة (الميزات الجديدة) ===
+  const [showSettingsModal, setShowSettingsModal] = useState(false)
+  const [showSupportModal, setShowSupportModal] = useState(false)
+  
+  // حالات نموذج الإعدادات
+  const [editName, setEditName] = useState('')
+  const [editPassword, setEditPassword] = useState('')
+  const [updatingSettings, setUpdatingSettings] = useState(false)
+
+  // حالات نموذج الدعم الفني
+  const [supportMessage, setSupportMessage] = useState('')
+  const [sendingSupport, setSendingSupport] = useState(false)
 
   useEffect(() => {
     fetchUserData()
@@ -32,7 +44,6 @@ export default function AdvancedProfilePage() {
   const fetchUserData = async () => {
     const { data: { user } } = await supabase.auth.getUser()
     if (user) {
-      // 1. جلب بيانات البروفايل
       const { data: profileData } = await supabase
         .from('profiles')
         .select('*')
@@ -42,8 +53,8 @@ export default function AdvancedProfilePage() {
       if (profileData) {
         setProfile(profileData)
         setUserRole(profileData.role)
+        setEditName(profileData.full_name || '') // تعبئة الاسم الحالي في نموذج الإعدادات
 
-        // 2. حساب إحصائيات الأثر البيئي والتوفير (إذا كان المستخدم زبوناً)
         if (profileData.role !== 'merchant') {
           const { data: orders } = await supabase
             .from('orders')
@@ -61,7 +72,7 @@ export default function AdvancedProfilePage() {
             setStats({
               rescuedMeals: rescued,
               savedMoney: saved,
-              co2Saved: rescued * 2.5 // تقديراً: كل وجبة تنقذ 2.5 كغ من انبعاثات CO2
+              co2Saved: rescued * 2.5 
             })
           }
         }
@@ -82,11 +93,54 @@ export default function AdvancedProfilePage() {
     }
   }
 
-  // بناء الأقسام ديناميكياً بناءً على الصلاحيات
+  // === دوال النوافذ المنبثقة (الميزات الجديدة) ===
+  const handleUpdateSettings = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setUpdatingSettings(true)
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) throw new Error("مستخدم غير مسجل")
+
+      // 1. تحديث الاسم في جدول profiles
+      if (editName !== profile?.full_name) {
+        await supabase.from('profiles').update({ full_name: editName }).eq('id', user.id)
+      }
+
+      // 2. تحديث كلمة المرور في قسم المصادقة (إذا كتب شيئاً جديداً)
+      if (editPassword.trim().length > 0) {
+        const { error } = await supabase.auth.updateUser({ password: editPassword })
+        if (error) throw error
+      }
+
+      alert('✅ تم تحديث بياناتك بنجاح!')
+      setShowSettingsModal(false)
+      fetchUserData() // تحديث البيانات المعروضة
+      setEditPassword('') // تصفير حقل كلمة المرور
+    } catch (error: any) {
+      alert('❌ حدث خطأ: ' + error.message)
+    } finally {
+      setUpdatingSettings(false)
+    }
+  }
+
+  const handleSendSupport = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!supportMessage.trim()) return
+    setSendingSupport(true)
+    
+    // محاكاة إرسال تذكرة دعم (يمكن ربطها بجدول support_tickets لاحقاً)
+    setTimeout(() => {
+      alert('✅ تم إرسال رسالتك لفريق الدعم بنجاح. سنرد عليك قريباً!')
+      setSupportMessage('')
+      setShowSupportModal(false)
+      setSendingSupport(false)
+    }, 1500)
+  }
+
+  // بناء الأقسام ديناميكياً 
   const buildSections = () => {
     const sections = []
 
-    // 1. قسم التأثير (للجميع - يمكن أن يوجه لصفحة تفصيلية لاحقاً)
     sections.push({
       title: "تأثيرك المجتمعي",
       items: [
@@ -94,7 +148,6 @@ export default function AdvancedProfilePage() {
       ]
     })
 
-    // 2. ميزات الزبون فقط
     if (userRole !== 'merchant') {
       sections.push({
         title: "حجوزاتي",
@@ -111,7 +164,6 @@ export default function AdvancedProfilePage() {
       })
     }
 
-    // 3. ميزات التاجر فقط
     if (userRole === 'merchant') {
       sections.push({
         title: "إدارة الأعمال",
@@ -122,11 +174,12 @@ export default function AdvancedProfilePage() {
       })
     }
 
-    // 4. إعدادات عامة
+    // تم تحديث هذا القسم ليفتح النوافذ المنبثقة بدلاً من التوجيه لروابط فارغة
     sections.push({
       title: "الإعدادات والدعم",
       items: [
-        { name: 'إعدادات الحساب', icon: Settings, color: 'text-gray-600', path: '/settings' },
+        { name: 'إعدادات الحساب', icon: Settings, color: 'text-gray-600', action: () => setShowSettingsModal(true) },
+        { name: 'الدعم الفني والمساعدة', icon: Headphones, color: 'text-sky-500', action: () => setShowSupportModal(true) },
         { name: 'عن نِعمة وتوزيع الأرباح', icon: Info, color: 'text-indigo-500', path: '/about-us' },
         { name: 'سياسة الخصوصية', icon: Heart, color: 'text-rose-400', path: '/legal' },
       ]
@@ -150,20 +203,28 @@ export default function AdvancedProfilePage() {
   return (
     <div className="min-h-screen bg-gray-50 pb-32 text-right font-sans" dir="rtl">
       
-      {/* هيدر البروفايل المطور */}
+      {/* هيدر البروفايل */}
       <div className="relative h-72 bg-emerald-600 text-white rounded-b-[60px] shadow-2xl flex flex-col items-center justify-center p-6 overflow-hidden mb-4">
         <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-32 -mt-32 blur-3xl"></div>
         <div className="relative z-10 text-center flex flex-col items-center">
-          <div className="w-24 h-24 rounded-[35px] bg-white/20 mb-4 border-4 border-white/50 flex items-center justify-center shadow-2xl backdrop-blur-md">
-             <div className="w-full h-full bg-emerald-50 rounded-[30px] flex items-center justify-center text-emerald-600 text-3xl font-black shadow-inner">
-               {profile?.full_name?.charAt(0) || <UserCircle size={48} />}
-             </div>
+          
+          {/* زر تغيير الصورة (تصميم مرئي جاهز للربط المستقبلي بالتخزين) */}
+          <div className="relative group cursor-pointer" onClick={() => setShowSettingsModal(true)}>
+            <div className="w-24 h-24 rounded-[35px] bg-white/20 mb-4 border-4 border-white/50 flex items-center justify-center shadow-2xl backdrop-blur-md overflow-hidden">
+                <div className="w-full h-full bg-emerald-50 flex items-center justify-center text-emerald-600 text-4xl font-black shadow-inner">
+                  {profile?.full_name?.charAt(0) || <UserCircle size={48} />}
+                </div>
+            </div>
+            <div className="absolute inset-0 bg-black/40 rounded-[35px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+               <Settings size={24} className="text-white" />
+            </div>
           </div>
+
           <h1 className="text-2xl font-black">{profile?.full_name || profile?.email?.split('@')[0]}</h1>
           <div className="flex items-center gap-2 mt-2 bg-black/20 px-4 py-1.5 rounded-full backdrop-blur-sm border border-white/10">
             <ShieldCheck size={14} className="text-emerald-300" />
             <span className="text-[10px] font-black uppercase tracking-wider">
-              {userRole === 'merchant' ? 'تاجر معتمد' : 'زبون موثق'}
+              {userRole === 'merchant' ? 'تاجر معتمد' : userRole === 'super_admin' ? 'مدير عام 👑' : 'زبون موثق'}
             </span>
           </div>
         </div>
@@ -187,8 +248,8 @@ export default function AdvancedProfilePage() {
           </button>
         </div>
 
-        {/* إحصائيات الأثر البيئي والتوفير (تظهر للزبائن فقط) */}
-        {userRole !== 'merchant' && (
+        {/* إحصائيات الأثر البيئي */}
+        {userRole !== 'merchant' && userRole !== 'super_admin' && (
           <div className="space-y-3">
             <h2 className="text-xs font-black text-gray-400 mr-4 mb-2 uppercase italic tracking-wider flex items-center gap-1">
               <Leaf size={14} className="text-emerald-500" /> أثرك الإيجابي المباشر
@@ -213,8 +274,8 @@ export default function AdvancedProfilePage() {
           </div>
         )}
 
-        {/* أقسام المالية (تظهر للزبائن) */}
-        {userRole !== 'merchant' && (
+        {/* أقسام المالية */}
+        {userRole !== 'merchant' && userRole !== 'super_admin' && (
           <div className="space-y-3">
             <h2 className="text-xs font-black text-gray-400 mr-4 mb-2 uppercase italic tracking-wider">المالية وطرق الدفع</h2>
             <div className="bg-white rounded-[35px] p-2 shadow-sm border border-gray-100 overflow-hidden">
@@ -239,8 +300,12 @@ export default function AdvancedProfilePage() {
           <div key={idx} className="space-y-3">
             <h2 className="text-xs font-black text-gray-400 mr-4 mb-2 uppercase italic tracking-wider">{section.title}</h2>
             <div className="bg-white rounded-[35px] p-2 shadow-sm border border-gray-100 overflow-hidden">
-              {section.items.map((item, i) => (
-                <button key={i} onClick={() => router.push(item.path)} className="w-full p-4 flex items-center gap-4 hover:bg-emerald-50 rounded-[25px] transition-all group border-b border-gray-50 last:border-none">
+              {section.items.map((item: any, i) => (
+                <button 
+                  key={i} 
+                  onClick={() => item.action ? item.action() : router.push(item.path)} 
+                  className="w-full p-4 flex items-center gap-4 hover:bg-emerald-50 rounded-[25px] transition-all group border-b border-gray-50 last:border-none"
+                >
                   <div className="p-3 rounded-2xl bg-gray-50 group-hover:bg-white shadow-sm transition-colors">
                     <item.icon size={22} className={item.color} />
                   </div>
@@ -254,7 +319,6 @@ export default function AdvancedProfilePage() {
           </div>
         ))}
 
-        {/* زر تسجيل الخروج */}
         <button 
           onClick={handleLogout}
           className="w-full bg-rose-50 text-rose-600 p-5 rounded-[30px] border border-rose-100 font-black flex items-center justify-center gap-3 active:scale-95 transition-all shadow-sm mb-10 mt-6"
@@ -263,6 +327,89 @@ export default function AdvancedProfilePage() {
         </button>
       </div>
       
+      {/* ================= نافذة الإعدادات (Modal) ================= */}
+      {showSettingsModal && (
+        <div className="fixed inset-0 bg-slate-900/60 z-50 flex items-end animate-in fade-in duration-300 backdrop-blur-sm">
+          <div className="bg-white w-full rounded-t-[40px] p-8 pb-12 animate-in slide-in-from-bottom-8 duration-300">
+            <div className="flex justify-between items-center mb-8">
+              <div>
+                <h2 className="text-xl font-black text-gray-900">إعدادات الحساب ⚙️</h2>
+                <p className="text-xs text-gray-500 font-bold mt-1">تحديث بياناتك الشخصية والأمان</p>
+              </div>
+              <button onClick={() => setShowSettingsModal(false)} className="bg-gray-100 hover:bg-gray-200 p-2.5 rounded-full text-gray-500 transition-colors"><X size={20}/></button>
+            </div>
+
+            <form onSubmit={handleUpdateSettings} className="space-y-5">
+              <div>
+                <label className="block text-xs font-black text-gray-500 mb-2 mr-2">الاسم الكامل</label>
+                <input 
+                  type="text" 
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  className="w-full bg-gray-50 border border-gray-100 rounded-2xl p-4 text-sm font-black text-gray-900 focus:border-emerald-500 focus:bg-white outline-none transition-all"
+                  placeholder="اسمك هنا..."
+                />
+              </div>
+              
+              <div>
+                <label className="block text-xs font-black text-gray-500 mb-2 mr-2">تغيير كلمة المرور (اختياري)</label>
+                <input 
+                  type="password" 
+                  value={editPassword}
+                  onChange={(e) => setEditPassword(e.target.value)}
+                  className="w-full bg-gray-50 border border-gray-100 rounded-2xl p-4 text-sm font-black text-gray-900 focus:border-emerald-500 focus:bg-white outline-none transition-all"
+                  placeholder="اتركه فارغاً إذا لم ترغب بتغييره"
+                />
+              </div>
+
+              <button 
+                type="submit"
+                disabled={updatingSettings}
+                className="w-full bg-emerald-600 text-white py-4 rounded-[25px] font-black text-sm mt-4 shadow-xl shadow-emerald-600/20 active:scale-95 transition-all flex justify-center items-center gap-2 disabled:opacity-70"
+              >
+                {updatingSettings ? <Loader2 className="animate-spin" size={20} /> : <><CheckCircle size={18}/> حفظ التعديلات</>}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ================= نافذة الدعم الفني (Modal) ================= */}
+      {showSupportModal && (
+        <div className="fixed inset-0 bg-slate-900/60 z-50 flex items-end animate-in fade-in duration-300 backdrop-blur-sm">
+          <div className="bg-white w-full rounded-t-[40px] p-8 pb-12 animate-in slide-in-from-bottom-8 duration-300">
+            <div className="flex justify-between items-center mb-8">
+              <div>
+                <h2 className="text-xl font-black text-gray-900">الدعم الفني 🎧</h2>
+                <p className="text-xs text-gray-500 font-bold mt-1">نحن هنا لمساعدتك والإجابة على استفساراتك</p>
+              </div>
+              <button onClick={() => setShowSupportModal(false)} className="bg-gray-100 hover:bg-gray-200 p-2.5 rounded-full text-gray-500 transition-colors"><X size={20}/></button>
+            </div>
+
+            <form onSubmit={handleSendSupport} className="space-y-5">
+              <div>
+                <label className="block text-xs font-black text-gray-500 mb-2 mr-2">كيف يمكننا مساعدتك؟</label>
+                <textarea 
+                  required
+                  value={supportMessage}
+                  onChange={(e) => setSupportMessage(e.target.value)}
+                  className="w-full bg-gray-50 border border-gray-100 rounded-2xl p-4 text-sm font-bold text-gray-900 focus:border-emerald-500 focus:bg-white outline-none transition-all h-32 resize-none"
+                  placeholder="اكتب رسالتك، مشكلتك، أو اقتراحك هنا..."
+                ></textarea>
+              </div>
+
+              <button 
+                type="submit"
+                disabled={sendingSupport}
+                className="w-full bg-gray-900 text-white py-4 rounded-[25px] font-black text-sm mt-4 shadow-xl active:scale-95 transition-all flex justify-center items-center gap-2 disabled:opacity-70"
+              >
+                {sendingSupport ? <Loader2 className="animate-spin" size={20} /> : 'إرسال الرسالة 🚀'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
       <BottomNav activeTab="profile" />
     </div>
   )
