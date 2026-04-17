@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@supabase/supabase-js'
-import { PlusCircle, Clock, Camera, ArrowRight, Loader2, ListFilter, Store, Package, TrendingUp, CheckCircle, AlertCircle } from 'lucide-react'
+import { PlusCircle, Clock, Camera, ArrowRight, Loader2, ListFilter, Store, Package, TrendingUp, CheckCircle, AlertCircle, Coins, Calendar } from 'lucide-react'
 import BottomNav from '@/components/BottomNav'
 
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
@@ -16,20 +16,21 @@ export default function MerchantDashboard() {
   const [merchantName, setMerchantName] = useState('جاري التحميل...')
   const [myMeals, setMyMeals] = useState<any[]>([])
   
-  // تبديل بين شاشة "الإحصائيات" وشاشة "إضافة عرض"
   const [activeTab, setActiveTab] = useState<'dashboard' | 'add'>('dashboard')
 
-  // حالات الصورة (من كودك)
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
 
-  // بيانات المنتج (من كودك)
+  // إضافة العملة وتواريخ الصلاحية للحالة
   const [product, setProduct] = useState({
     title: '',
-    category: 'مطاعم', 
+    category: 'مطاعم',
+    currency: 'ل.س', // العملة الافتراضية
     originalPrice: '',
     discountedPrice: '',
     quantity: '1',
+    startDate: new Date().toISOString().split('T')[0],
+    endDate: new Date().toISOString().split('T')[0],
     startTime: '18:00',
     endTime: '21:00'
   })
@@ -47,11 +48,9 @@ export default function MerchantDashboard() {
       return
     }
 
-    // جلب اسم التاجر
     const { data: profile } = await supabase.from('profiles').select('shop_name, full_name').eq('id', user.id).single()
     if (profile) setMerchantName(profile.shop_name || profile.full_name || 'تاجر معتمد')
 
-    // جلب عروض التاجر السابقة للإحصائيات
     const { data: meals } = await supabase
       .from('meals')
       .select('*')
@@ -62,7 +61,6 @@ export default function MerchantDashboard() {
     setDataLoading(false)
   }
 
-  // دوال التعامل مع الصورة والإضافة (من كودك بالضبط)
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0]
@@ -89,13 +87,17 @@ export default function MerchantDashboard() {
       
       const { data: { publicUrl } } = supabase.storage.from('product-images').getPublicUrl(fileName)
 
+      // تضمين العملة والتواريخ عند الحفظ في قاعدة البيانات
       const { error } = await supabase.from('meals').insert([{
         merchant_id: user.id,
         name: product.title,
         category: product.category,
+        currency: product.currency,
         original_price: parseFloat(product.originalPrice),
         discounted_price: parseFloat(product.discountedPrice),
         quantity: parseInt(product.quantity),
+        start_date: product.startDate,
+        end_date: product.endDate,
         pickup_time: `من ${product.startTime} إلى ${product.endTime}`,
         image_url: publicUrl,
         is_approved: false 
@@ -104,11 +106,10 @@ export default function MerchantDashboard() {
       if (error) throw error
       
       alert('✅ تم إرسال العرض للإدارة بنجاح!')
-      // إعادة تعيين النموذج والعودة للوحة الإحصائيات
       setProduct({ ...product, title: '', originalPrice: '', discountedPrice: '' })
       setImageFile(null)
       setPreviewUrl(null)
-      fetchMerchantData() // تحديث القائمة
+      fetchMerchantData() 
       setActiveTab('dashboard')
     } catch (error: any) {
       alert('❌ خطأ: ' + error.message)
@@ -117,7 +118,6 @@ export default function MerchantDashboard() {
     }
   }
 
-  // حساب الإحصائيات
   const activeMealsCount = myMeals.filter(m => m.is_approved && m.quantity > 0).length
   const pendingMealsCount = myMeals.filter(m => !m.is_approved).length
 
@@ -126,7 +126,6 @@ export default function MerchantDashboard() {
   return (
     <div className="min-h-screen bg-gray-50 pb-28 text-right font-sans" dir="rtl">
       
-      {/* هيدر لوحة التحكم الفخم (من كودك) */}
       <div className="bg-emerald-800 text-white p-6 rounded-b-[40px] shadow-lg mb-6 sticky top-0 z-20">
         <div className="flex items-center justify-between mb-4">
           <button onClick={() => router.back()} className="bg-white/10 p-2 rounded-xl active:scale-95 transition-transform">
@@ -148,7 +147,6 @@ export default function MerchantDashboard() {
           </div>
         </div>
 
-        {/* أزرار التبديل بين اللوحة والإضافة */}
         <div className="flex bg-white/10 p-1 rounded-xl mt-4">
           <button onClick={() => setActiveTab('dashboard')} className={`flex-1 py-2 text-sm font-black rounded-lg transition-colors ${activeTab === 'dashboard' ? 'bg-white text-emerald-800' : 'text-emerald-100'}`}>الإحصائيات والعروض</button>
           <button onClick={() => setActiveTab('add')} className={`flex-1 py-2 text-sm font-black rounded-lg transition-colors ${activeTab === 'add' ? 'bg-white text-emerald-800' : 'text-emerald-100'}`}>إضافة عرض جديد</button>
@@ -156,7 +154,6 @@ export default function MerchantDashboard() {
       </div>
 
       {activeTab === 'dashboard' ? (
-        // ================= القسم الأول: الإحصائيات والعروض =================
         <div className="px-6 space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
           <div className="grid grid-cols-2 gap-4">
             <div className="bg-white p-4 rounded-[25px] shadow-sm border border-gray-100 flex items-center gap-4">
@@ -188,7 +185,7 @@ export default function MerchantDashboard() {
                     <img src={meal.image_url} alt={meal.name} className="w-20 h-20 object-cover rounded-2xl" />
                     <div className="flex-1">
                       <h3 className="font-black text-sm text-gray-900">{meal.name}</h3>
-                      <p className="text-xs font-bold text-gray-500 mt-1">{meal.discounted_price} €</p>
+                      <p className="text-xs font-bold text-gray-500 mt-1">{meal.discounted_price} {meal.currency || 'ل.س'}</p>
                       <div className="mt-2 inline-block">
                         {meal.is_approved ? (
                           <span className="bg-emerald-50 text-emerald-600 text-[10px] font-black px-2 py-1 rounded-lg flex items-center gap-1"><CheckCircle size={12} /> منشور بالسوق</span>
@@ -208,7 +205,6 @@ export default function MerchantDashboard() {
           </div>
         </div>
       ) : (
-        // ================= القسم الثاني: إضافة عرض جديد (كودك الأصلي) =================
         <form onSubmit={handleSubmit} className="px-6 space-y-6 animate-in fade-in slide-in-from-left-4 duration-300">
           
           <div className="relative group">
@@ -232,20 +228,26 @@ export default function MerchantDashboard() {
               <input type="text" required value={product.title} placeholder="مثال: صندوق معجنات مشكل" className="w-full bg-white border-2 border-gray-100 rounded-2xl p-4 text-gray-900 font-black focus:border-emerald-600 focus:outline-none shadow-sm transition-all" onChange={(e) => setProduct({...product, title: e.target.value})} />
             </div>
 
-            <div>
-              <label className="block text-xs font-black text-gray-500 mb-2 mr-2 italic flex items-center gap-1"><ListFilter size={14} className="text-emerald-500"/> التصنيف</label>
-              <select required value={product.category} onChange={(e) => setProduct({...product, category: e.target.value})} className="w-full bg-white border-2 border-gray-100 rounded-2xl p-4 text-gray-900 font-black focus:border-emerald-600 focus:outline-none shadow-sm appearance-none transition-all cursor-pointer">
-                {CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
-              </select>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-black text-gray-500 mb-2 mr-2 italic flex items-center gap-1"><ListFilter size={14} className="text-emerald-500"/> التصنيف</label>
+                <select required value={product.category} onChange={(e) => setProduct({...product, category: e.target.value})} className="w-full bg-white border-2 border-gray-100 rounded-2xl p-4 text-gray-900 font-black focus:border-emerald-600 focus:outline-none shadow-sm appearance-none transition-all cursor-pointer">
+                  {CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-black text-gray-500 mb-2 mr-2 italic flex items-center gap-1"><Coins size={14} className="text-amber-500"/> العملة</label>
+                <input type="text" required value={product.currency} placeholder="مثال: ليرة، دولار..." className="w-full bg-white border-2 border-gray-100 rounded-2xl p-4 text-gray-900 font-black focus:border-emerald-600 focus:outline-none shadow-sm transition-all" onChange={(e) => setProduct({...product, currency: e.target.value})} />
+              </div>
             </div>
             
             <div className="flex gap-4">
               <div className="flex-1">
-                <label className="block text-xs font-black text-gray-500 mb-2 mr-2 italic">السعر الأصلي (€)</label>
+                <label className="block text-xs font-black text-gray-500 mb-2 mr-2 italic">السعر الأصلي</label>
                 <input type="number" required value={product.originalPrice} step="0.01" placeholder="10.00" className="w-full bg-white border-2 border-gray-100 rounded-2xl p-4 text-gray-900 font-black text-center focus:border-emerald-600 focus:outline-none shadow-sm transition-all" onChange={(e) => setProduct({...product, originalPrice: e.target.value})} />
               </div>
               <div className="flex-1">
-                <label className="block text-xs font-black text-emerald-600 mb-2 mr-2 italic">سعر نِعمة (€)</label>
+                <label className="block text-xs font-black text-emerald-600 mb-2 mr-2 italic">سعر نِعمة</label>
                 <input type="number" required value={product.discountedPrice} step="0.01" placeholder="3.00" className="w-full bg-emerald-50 border-2 border-emerald-200 rounded-2xl p-4 text-emerald-900 font-black text-center focus:border-emerald-600 focus:outline-none shadow-sm transition-all" onChange={(e) => setProduct({...product, discountedPrice: e.target.value})} />
               </div>
             </div>
@@ -257,7 +259,19 @@ export default function MerchantDashboard() {
           </div>
 
           <div className="bg-white p-6 rounded-[30px] shadow-sm border border-gray-100">
-            <h3 className="font-black text-gray-900 mb-4 flex items-center gap-2 text-sm"><Clock size={18} className="text-emerald-600" /> أوقات توفر الاستلام</h3>
+            <h3 className="font-black text-gray-900 mb-4 flex items-center gap-2 text-sm"><Calendar size={18} className="text-orange-500" /> الأيام المتاحة للعرض</h3>
+            <div className="grid grid-cols-2 gap-4 mb-4">
+              <div>
+                <span className="text-[10px] font-black text-gray-400 block mb-1">من تاريخ</span>
+                <input type="date" required value={product.startDate} className="w-full bg-gray-50 rounded-xl p-3 text-gray-900 font-black text-center border border-gray-100 focus:outline-none focus:border-emerald-500 transition-all" onChange={(e) => setProduct({...product, startDate: e.target.value})} />
+              </div>
+              <div>
+                <span className="text-[10px] font-black text-gray-400 block mb-1">إلى تاريخ</span>
+                <input type="date" required value={product.endDate} className="w-full bg-gray-50 rounded-xl p-3 text-gray-900 font-black text-center border border-gray-100 focus:outline-none focus:border-emerald-500 transition-all" onChange={(e) => setProduct({...product, endDate: e.target.value})} />
+              </div>
+            </div>
+
+            <h3 className="font-black text-gray-900 mb-4 flex items-center gap-2 text-sm pt-4 border-t border-gray-100"><Clock size={18} className="text-emerald-600" /> أوقات توفر الاستلام</h3>
             <div className="flex items-center gap-4">
               <div className="flex-1">
                 <span className="text-[10px] font-black text-gray-400 block mb-1">من الساعة</span>
