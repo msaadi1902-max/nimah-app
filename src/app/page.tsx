@@ -56,7 +56,8 @@ export default function HomePage() {
     setLoading(false)
   }
 
-  const handleAddToCart = (meal: any) => {
+  const handleAddToCart = (e: React.MouseEvent, meal: any) => {
+    e.stopPropagation() // لمنع فتح صفحة التفاصيل عند الضغط على زر "أضف للسلة"
     addToCart({
       id: meal.id.toString(),
       name: meal.name,
@@ -141,7 +142,11 @@ export default function HomePage() {
           
           <div className="flex gap-4 overflow-x-auto hide-scrollbar pb-4 snap-x">
             {featuredMeals.map((meal) => (
-              <div key={`feat-${meal.id}`} className="min-w-[280px] bg-slate-900 text-white rounded-[35px] overflow-hidden shadow-xl border border-slate-800 relative snap-center group">
+              <div 
+                key={`feat-${meal.id}`} 
+                onClick={() => router.push(`/meal/${meal.id}`)} // الربط بصفحة التفاصيل
+                className="cursor-pointer min-w-[280px] bg-slate-900 text-white rounded-[35px] overflow-hidden shadow-xl border border-slate-800 relative snap-center group"
+              >
                 
                 <div className="absolute top-4 right-4 z-10 bg-amber-500 text-slate-900 text-[10px] font-black px-3 py-1.5 rounded-full shadow-[0_0_15px_rgba(245,158,11,0.5)]">
                   عرض خاص 🔥
@@ -156,12 +161,11 @@ export default function HomePage() {
                   <h3 className="text-lg font-black text-white mb-1 leading-tight">{meal.name}</h3>
                   <div className="flex justify-between items-end mt-3">
                     <div className="text-left">
-                      {/* دمج العملة الديناميكية هنا */}
                       <p className="text-2xl font-black text-amber-400">{meal.discounted_price} {meal.currency || 'ل.س'}</p>
                       <p className="text-[10px] font-bold text-slate-400 line-through">{meal.original_price} {meal.currency || 'ل.س'}</p>
                     </div>
                     <button 
-                      onClick={() => handleAddToCart(meal)}
+                      onClick={(e) => handleAddToCart(e, meal)} // تحديث دالة الإضافة للسلة لمنع التداخل
                       className="bg-amber-500 hover:bg-amber-400 text-slate-900 px-4 py-2 rounded-xl text-xs font-black shadow-lg active:scale-95 transition-all flex items-center gap-1"
                     >
                       <Plus size={14} /> إضافة
@@ -192,7 +196,11 @@ export default function HomePage() {
         ) : (
           <div className="space-y-5">
             {filteredMeals.map((meal) => (
-              <div key={`norm-${meal.id}`} className="bg-white rounded-[35px] overflow-hidden shadow-sm border border-gray-100 relative group animate-in slide-in-from-bottom-4 duration-500 hover:shadow-md transition-shadow">
+              <div 
+                key={`norm-${meal.id}`} 
+                onClick={() => router.push(`/meal/${meal.id}`)} // الربط بصفحة التفاصيل
+                className="cursor-pointer bg-white rounded-[35px] overflow-hidden shadow-sm border border-gray-100 relative group animate-in slide-in-from-bottom-4 duration-500 hover:shadow-md transition-shadow"
+              >
                 
                 {/* شارة الخصم */}
                 <div className="absolute top-4 right-4 z-10 bg-rose-500 text-white text-[10px] font-black px-3 py-1.5 rounded-full shadow-sm">
@@ -218,7 +226,6 @@ export default function HomePage() {
                          <span className="text-[10px] font-bold text-gray-400 flex items-center gap-1"><Clock size={12}/> {meal.pickup_time}</span>
                       </div>
                       
-                      {/* دمج تواريخ الصلاحية هنا بشكل أنيق */}
                       {meal.start_date && meal.end_date && (
                         <p className="text-[9px] text-gray-500 font-bold flex items-center gap-1 mt-1 bg-gray-50 w-fit px-2 py-1 rounded-md">
                           <Calendar size={10} className="text-orange-400" /> صالح من {meal.start_date} لـ {meal.end_date}
@@ -227,7 +234,6 @@ export default function HomePage() {
                     </div>
                     
                     <div className="text-left whitespace-nowrap mr-2">
-                      {/* دمج العملة الديناميكية هنا */}
                       <p className="text-2xl font-black text-gray-900">{meal.discounted_price} <span className="text-base">{meal.currency || 'ل.س'}</span></p>
                       <p className="text-xs font-bold text-gray-400 line-through">{meal.original_price} {meal.currency || 'ل.س'}</p>
                     </div>
@@ -235,7 +241,7 @@ export default function HomePage() {
 
                   <div className="flex gap-3 items-center pt-2">
                     <button 
-                      onClick={() => handleAddToCart(meal)}
+                      onClick={(e) => handleAddToCart(e, meal)} // تحديث دالة الإضافة للسلة لمنع التداخل
                       className="flex-1 bg-emerald-600 text-white py-4 rounded-2xl text-sm font-black active:scale-95 transition-all shadow-md shadow-emerald-100 flex justify-center items-center gap-2 hover:bg-emerald-700"
                     >
                       <Plus size={18} /> أضف للسلة
