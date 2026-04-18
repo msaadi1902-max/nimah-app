@@ -18,8 +18,9 @@ export default function UserRoleGate({ children }: { children: React.ReactNode }
   const checkAccess = async () => {
     const { data: { user } } = await supabase.auth.getUser()
     
-    // 1. السماح بالمسارات العامة (ترحيب، تسجيل دخول، إلخ)
-    if (pathname === '/welcome' || pathname.startsWith('/auth')) {
+    // 1. السماح بالمسارات العامة (ترحيب، تسجيل دخول، وبوابة الإدارة السرية)
+    // 👑 تمت إضافة '/admin' هنا لكي تتمكن من رؤية شاشة تسجيل الدخول
+    if (pathname === '/welcome' || pathname.startsWith('/auth') || pathname === '/admin') {
       setLoading(false)
       return
     }
@@ -55,8 +56,9 @@ export default function UserRoleGate({ children }: { children: React.ReactNode }
       return
     }
 
-    // ج. حماية مسارات الإدارة القديمة (Admin + Staff + Super Admin)
-    if (pathname.startsWith('/admin') && !['admin', 'staff', 'super_admin'].includes(role)) {
+    // ج. حماية مسارات الإدارة القديمة إن وجدت (Admin + Staff + Super Admin)
+    // استخدمنا admin- لكي لا يطردك من صفحة الدخول admin
+    if (pathname.startsWith('/admin-') && !['admin', 'staff', 'super_admin'].includes(role)) {
       router.replace('/')
       return
     }
@@ -74,11 +76,11 @@ export default function UserRoleGate({ children }: { children: React.ReactNode }
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-900 flex flex-col items-center justify-center text-emerald-400">
-        <Loader2 className="animate-spin w-12 h-12 mb-3 shadow-[0_0_15px_rgba(52,211,153,0.3)] rounded-full" />
-        <div className="flex flex-col items-center gap-1">
-          <span className="text-sm font-black uppercase tracking-widest italic">نظام الحماية النشط</span>
-          <span className="text-[10px] text-gray-400">جاري فحص رتبة المستخدم والوصول...</span>
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-emerald-400">
+        <Loader2 className="animate-spin w-12 h-12 mb-4 shadow-[0_0_15px_rgba(52,211,153,0.3)] rounded-full" />
+        <div className="flex flex-col items-center gap-1.5">
+          <span className="text-sm font-black uppercase tracking-widest italic text-white">نظام الحماية النشط</span>
+          <span className="text-xs font-bold text-slate-500">جاري فحص وتأمين الاتصال...</span>
         </div>
       </div>
     )
