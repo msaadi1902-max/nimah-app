@@ -1,63 +1,70 @@
 'use client'
 import React, { useEffect, useState } from 'react'
 import { createClient } from '@supabase/supabase-js'
-import { CheckCircle, XCircle, Store, Loader2, Calendar, Clock, AlertCircle, Package } from 'lucide-react'
+import { CheckCircle, XCircle, Store, Loader2, Calendar, Clock, AlertCircle, Package, RefreshCw } from 'lucide-react'
 
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
 
 export default function StaffPanel() {
   const [pendingMeals, setPendingMeals] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
 
   useEffect(() => {
     fetchPendingMeals()
   }, [])
 
   const fetchPendingMeals = async () => {
-    setLoading(true)
-    // جلب الوجبات التي لم تتم الموافقة عليها بعد (is_approved = false)
-    const { data, error } = await supabase
-      .from('meals')
-      .select('*, profiles:merchant_id(shop_name, full_name)')
-      .eq('is_approved', false)
-      .order('created_at', { ascending: false })
+    setRefreshing(true)
+    try {
+      const { data, error } = await supabase
+        .from('meals')
+        .select('*, profiles:merchant_id(shop_name, full_name)')
+        .eq('is_approved', false)
+        .order('created_at', { ascending: false })
 
-    if (data) setPendingMeals(data)
-    setLoading(false)
+      if (error) throw error
+      if (data) setPendingMeals(data)
+    } catch (error: any) {
+      console.error('Error fetching meals:', error.message)
+    } finally {
+      setLoading(false)
+      setRefreshing(false)
+    }
   }
 
-  // دالة الموافقة على العرض
   const handleApprove = async (mealId: number) => {
     const confirmApprove = window.confirm('هل أنت متأكد من قبول هذا العرض ونشره في السوق؟')
     if (!confirmApprove) return
 
-    const { error } = await supabase
-      .from('meals')
-      .update({ is_approved: true })
-      .eq('id', mealId)
+    try {
+      const { error } = await supabase
+        .from('meals')
+        .update({ is_approved: true })
+        .eq('id', mealId)
 
-    if (!error) {
+      if (error) throw error
       alert('✅ تم قبول العرض ونشره بنجاح!')
-      setPendingMeals(pendingMeals.filter(meal => meal.id !== mealId))
-    } else {
+      setPendingMeals(prev => prev.filter(meal => meal.id !== mealId))
+    } catch (error: any) {
       alert('❌ حدث خطأ أثناء القبول: ' + error.message)
     }
   }
 
-  // دالة رفض وحذف العرض
   const handleReject = async (mealId: number) => {
     const confirmReject = window.confirm('هل أنت متأكد من رفض هذا العرض؟ سيتم حذفه نهائياً.')
     if (!confirmReject) return
 
-    const { error } = await supabase
-      .from('meals')
-      .delete()
-      .eq('id', mealId)
+    try {
+      const { error } = await supabase
+        .from('meals')
+        .delete()
+        .eq('id', mealId)
 
-    if (!error) {
+      if (error) throw error
       alert('🗑️ تم رفض وحذف العرض.')
-      setPendingMeals(pendingMeals.filter(meal => meal.id !== mealId))
-    } else {
+      setPendingMeals(prev => prev.filter(meal => meal.id !== mealId))
+    } catch (error: any) {
       alert('❌ حدث خطأ أثناء الحذف: ' + error.message)
     }
   }
@@ -74,32 +81,38 @@ export default function StaffPanel() {
   return (
     <div className="min-h-screen bg-gray-50 pb-20 font-sans text-right" dir="rtl">
       
-      {/* الهيدر الخاص بالموظفين */}
-      <div className="bg-slate-900 text-white p-8 rounded-b-[40px] shadow-lg mb-8 relative overflow-hidden">
+      {/* الهيدر المطور */}
+      <div className="bg-slate-900 text-white p-8 rounded-b-[40px] shadow-lg mb-8 relative overflow-hidden flex justify-between items-center">
         <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 rounded-full blur-3xl -mr-10 -mt-10"></div>
         <div className="relative z-10">
           <h1 className="text-2xl font-black mb-2 flex items-center gap-2">
-            <AlertCircle className="text-amber-400" /> لوحة المراجعة والتدقيق
+            <AlertCircle className="text-amber-400" /> لوحة التدقيق
           </h1>
           <p className="text-sm text-slate-400 font-bold">
             لديك <span className="text-emerald-400 mx-1 px-2 py-0.5 bg-emerald-400/10 rounded-md">{pendingMeals.length}</span> عروض بانتظار قرارك
           </p>
         </div>
+        <button 
+          onClick={fetchPendingMeals} 
+          disabled={refreshing}
+          className="relative z-10 bg-slate-800 p-3 rounded-2xl text-emerald-400 hover:bg-slate-700 transition-all active:scale-95"
+        >
+          <RefreshCw size={20} className={refreshing ? "animate-spin" : ""} />
+        </button>
       </div>
 
       <div className="px-6">
         {pendingMeals.length === 0 ? (
-          <div className="bg-white p-12 rounded-[30px] text-center border border-gray-100 shadow-sm">
+          <div className="bg-white p-12 rounded-[30px] text-center border border-gray-100 shadow-sm animate-in zoom-in duration-500">
             <CheckCircle size={56} className="mx-auto text-emerald-400 mb-4 bg-emerald-50 p-3 rounded-full" />
             <h2 className="text-xl font-black text-gray-800 mb-2">صندوق المراجعة فارغ!</h2>
-            <p className="text-sm text-gray-500 font-bold">عمل رائع، لا توجد أي عروض معلقة حالياً. لقد قمت بإنجاز كل مهامك.</p>
+            <p className="text-sm text-gray-500 font-bold leading-relaxed">عمل رائع، لا توجد أي عروض معلقة حالياً. لقد قمت بإنجاز كل مهامك.</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-6">
             {pendingMeals.map(meal => (
               <div key={meal.id} className="bg-white rounded-[30px] overflow-hidden shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
                 
-                {/* صورة العرض وتفاصيل التاجر */}
                 <div className="relative h-48 bg-gray-100">
                   <img src={meal.image_url} alt={meal.name} className="w-full h-full object-cover" />
                   <div className="absolute top-4 right-4 bg-white/95 backdrop-blur-md px-3 py-1.5 rounded-xl flex items-center gap-2 shadow-sm border border-white/20">
@@ -110,7 +123,6 @@ export default function StaffPanel() {
                   </div>
                 </div>
 
-                {/* تفاصيل الوجبة للمراجعة */}
                 <div className="p-5">
                   <div className="flex justify-between items-start mb-5">
                     <div>
@@ -120,12 +132,11 @@ export default function StaffPanel() {
                       <h3 className="font-black text-lg text-gray-900 leading-tight">{meal.name}</h3>
                     </div>
                     <div className="text-left bg-gray-50 p-2.5 rounded-xl border border-gray-100 min-w-[80px]">
-                      <span className="block text-[10px] text-gray-400 line-through font-bold">{meal.original_price} {meal.currency || 'ل.س'}</span>
-                      <span className="font-black text-emerald-600 text-lg leading-none">{meal.discounted_price} <span className="text-sm">{meal.currency || 'ل.س'}</span></span>
+                      <span className="block text-[10px] text-gray-400 line-through font-bold">{meal.original_price} {meal.currency || '€'}</span>
+                      <span className="font-black text-emerald-600 text-lg leading-none">{meal.discounted_price} <span className="text-sm">{meal.currency || '€'}</span></span>
                     </div>
                   </div>
 
-                  {/* شبكة المعلومات (الكمية، الصلاحية، الاستلام) */}
                   <div className="grid grid-cols-3 gap-2 mb-6">
                     <div className="bg-gray-50 p-3 rounded-xl flex flex-col gap-1 border border-gray-100">
                       <span className="text-[9px] text-gray-500 font-bold flex items-center gap-1"><Package size={12} className="text-blue-500"/> الكمية</span>
@@ -133,26 +144,19 @@ export default function StaffPanel() {
                     </div>
                     <div className="bg-gray-50 p-3 rounded-xl flex flex-col gap-1 border border-gray-100">
                       <span className="text-[9px] text-gray-500 font-bold flex items-center gap-1"><Calendar size={12} className="text-orange-500"/> الصلاحية</span>
-                      <span className="text-[10px] font-black text-gray-800 leading-tight">{meal.start_date || 'غير محدد'} <br/>إلى {meal.end_date || 'غير محدد'}</span>
+                      <span className="text-[10px] font-black text-gray-800 leading-tight">{meal.start_date || '-'} <br/>لـ {meal.end_date || '-'}</span>
                     </div>
                     <div className="bg-gray-50 p-3 rounded-xl flex flex-col gap-1 border border-gray-100">
                       <span className="text-[9px] text-gray-500 font-bold flex items-center gap-1"><Clock size={12} className="text-emerald-500"/> الاستلام</span>
-                      <span className="text-[10px] font-black text-gray-800 leading-tight">{meal.pickup_time || 'غير محدد'}</span>
+                      <span className="text-[10px] font-black text-gray-800 leading-tight">{meal.pickup_time || '-'}</span>
                     </div>
                   </div>
 
-                  {/* أزرار القرار (قبول / رفض) */}
                   <div className="flex gap-3 pt-4 border-t border-gray-100">
-                    <button 
-                      onClick={() => handleApprove(meal.id)}
-                      className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white py-3.5 rounded-xl font-black text-sm flex justify-center items-center gap-2 transition-all active:scale-95 shadow-lg shadow-emerald-600/20"
-                    >
+                    <button onClick={() => handleApprove(meal.id)} className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white py-3.5 rounded-xl font-black text-sm flex justify-center items-center gap-2 transition-all active:scale-95 shadow-lg shadow-emerald-600/20">
                       <CheckCircle size={18} /> قبول ونشر
                     </button>
-                    <button 
-                      onClick={() => handleReject(meal.id)}
-                      className="flex-1 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-100 py-3.5 rounded-xl font-black text-sm flex justify-center items-center gap-2 transition-all active:scale-95"
-                    >
+                    <button onClick={() => handleReject(meal.id)} className="flex-1 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-100 py-3.5 rounded-xl font-black text-sm flex justify-center items-center gap-2 transition-all active:scale-95">
                       <XCircle size={18} /> رفض وحذف
                     </button>
                   </div>
