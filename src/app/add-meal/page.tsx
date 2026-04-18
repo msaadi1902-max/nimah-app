@@ -46,7 +46,17 @@ export default function AddMealPage() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error("يجب تسجيل الدخول كتاجر أولاً")
 
-      // 1. رفع الصورة الحقيقية إلى Supabase Storage
+      // 👑 1. التحقق من رتبة التاجر (هل هو موثوق أم عادي؟)
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('is_trusted')
+        .eq('id', user.id)
+        .single()
+
+      // إذا كان is_trusted موجوداً ويساوي true، فإن الموافقة التلقائية ستكون true
+      const isTrustedMerchant = profileData?.is_trusted || false
+
+      // 2. رفع الصورة الحقيقية إلى Supabase Storage
       const fileExt = file.name.split('.').pop()
       const fileName = `${user.id}/${Date.now()}.${fileExt}`
       
@@ -59,25 +69,31 @@ export default function AddMealPage() {
       // جلب الرابط العام للصورة
       const { data: publicUrl } = supabase.storage.from('product-images').getPublicUrl(fileName)
       
-      // 2. حفظ بيانات العرض في قاعدة البيانات مع الحقول المحدثة
+      // 3. حفظ بيانات العرض في قاعدة البيانات مع الحقول المحدثة
       const { error } = await supabase.from('meals').insert([{
         name: name,
         category: category,
-        currency: currency, // إضافة العملة التي كتبها التاجر
+        currency: currency, 
         original_price: parseFloat(originalPrice),
         discounted_price: parseFloat(discountedPrice),
         quantity: parseInt(quantity),
-        start_date: startDate, // تاريخ بداية العرض
-        end_date: endDate, // تاريخ نهاية العرض
+        start_date: startDate, 
+        end_date: endDate, 
         pickup_time: pickupTime, 
-        is_approved: false, 
+        is_approved: isTrustedMerchant, // ✨ السحر هنا: حالة الموافقة تعتمد على موثوقية التاجر
         merchant_id: user.id,
         image_url: publicUrl.publicUrl
       }])
 
       if (error) throw error
 
-      alert('تم إرسال العرض للإدارة بنجاح! 🎉 سيظهر في السوق فور الموافقة عليه.')
+      // 👑 4. رسالة مخصصة حسب رتبة التاجر
+      if (isTrustedMerchant) {
+        alert('👑 بصفتك تاجراً موثوقاً، تم نشر العرض في السوق فوراً بنجاح! 🎉')
+      } else {
+        alert('تم إرسال العرض للإدارة بنجاح! 🎉 سيظهر في السوق فور الموافقة عليه.')
+      }
+
       router.push('/merchant-dashboard')
     } catch (error: any) {
       alert('حدث خطأ: ' + error.message)
@@ -89,7 +105,7 @@ export default function AddMealPage() {
   return (
     <div className="min-h-screen bg-gray-50 pb-28 text-right font-sans" dir="rtl">
       
-      {/* الهيدر الأنيق (تصميمك) */}
+      {/* الهيدر الأنيق */}
       <div className="bg-emerald-600 text-white p-6 pt-12 pb-10 rounded-b-[40px] shadow-lg mb-6 flex items-center justify-between relative overflow-hidden">
         <div className="absolute top-0 left-0 w-32 h-32 bg-white/10 rounded-full blur-2xl -ml-10 -mt-10"></div>
         <button onClick={() => router.back()} className="relative z-10 bg-white/20 p-2 rounded-xl active:scale-95 transition-transform">
@@ -104,7 +120,7 @@ export default function AddMealPage() {
 
       <form onSubmit={handleSubmit} className="px-6 space-y-5">
         
-        {/* مربع رفع الصورة (مع المعاينة الحية المدمجة) */}
+        {/* مربع رفع الصورة */}
         <div className="relative group overflow-hidden bg-white border-2 border-dashed border-emerald-200 rounded-[30px] p-8 text-center flex flex-col items-center justify-center text-emerald-600 shadow-sm hover:bg-emerald-50 transition-colors">
           <input 
             type="file" 
@@ -158,7 +174,6 @@ export default function AddMealPage() {
               <label className="text-xs font-black text-gray-700 mb-1.5 flex items-center gap-1.5">
                 <Coins size={14} className="text-amber-500"/> العملة 
               </label>
-              {/* تم تحويله لحقل إدخال حر كما طلبت */}
               <input value={currency} onChange={(e) => setCurrency(e.target.value)} type="text" required placeholder="مثال: ليرة، دولار..." className="w-full bg-gray-50 border border-gray-100 p-3.5 rounded-xl text-sm font-bold outline-none focus:border-emerald-500 focus:bg-white transition-all" />
             </div>
           </div>
@@ -187,7 +202,7 @@ export default function AddMealPage() {
             <input value={quantity} onChange={(e) => setQuantity(e.target.value)} type="number" min="1" required placeholder="مثال: 5" className="w-full bg-gray-50 border border-gray-100 p-3.5 rounded-xl text-sm font-bold outline-none focus:border-emerald-500 focus:bg-white transition-all" />
           </div>
 
-          {/* التاريخ والوقت (التحسينات الجديدة) */}
+          {/* التاريخ والوقت */}
           <div className="border-t border-gray-100 pt-4 mt-2">
              <label className="text-xs font-black text-gray-700 mb-3 flex items-center gap-1.5">
                <Calendar size={14} className="text-orange-500"/> الأيام المتاحة للعرض
