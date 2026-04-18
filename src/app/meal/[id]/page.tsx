@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react'
 import { createClient } from '@supabase/supabase-js'
 import { useParams, useRouter } from 'next/navigation'
-import { ArrowRight, Star, Clock, Calendar, Store, Plus, Loader2, MessageSquare, ShieldCheck, Heart, Share2, Info } from 'lucide-react'
+import { ArrowRight, Star, Clock, Calendar, Store, Plus, Loader2, MessageSquare, ShieldCheck, Heart, Share2, Info, ShoppingBag } from 'lucide-react'
 import { useCart } from '../../context/CartContext'
 
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
