@@ -1,7 +1,7 @@
 'use client'
 import React, { useEffect, useState } from 'react'
 import { createClient } from '@supabase/supabase-js'
-import { ShieldCheck, UserCog, Ban, Search, Loader2, Store, User, Users, Shield } from 'lucide-react'
+import { ShieldCheck, UserCog, Ban, Search, Loader2, Store, User, Users, Shield, Star } from 'lucide-react'
 
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
 
@@ -40,8 +40,26 @@ export default function MasterPanel() {
       if (error) throw error
       
       alert(`✅ تم تغيير الصلاحية إلى ${newRole} بنجاح`);
-      // تحديث الواجهة فوراً بدون إعادة تحميل من السيرفر
       setUsers(users.map(u => u.id === userId ? { ...u, role: newRole } : u))
+    } catch (error: any) {
+      alert(`❌ حدث خطأ: ${error.message}`);
+    }
+  }
+
+  // 👑 الميزة الجديدة: التحكم في توثيق التاجر
+  const toggleTrusted = async (userId: string, currentStatus: boolean, userName: string) => {
+    const newStatus = !currentStatus
+    const actionText = newStatus ? 'توثيق' : 'إلغاء توثيق'
+    
+    const confirmUpdate = window.confirm(`هل أنت متأكد من ${actionText} حساب التاجر "${userName}" كتاجر موثوق؟`)
+    if (!confirmUpdate) return
+
+    try {
+      const { error } = await supabase.from('profiles').update({ is_trusted: newStatus }).eq('id', userId)
+      if (error) throw error
+      
+      alert(`✅ تم ${actionText} الحساب بنجاح`);
+      setUsers(users.map(u => u.id === userId ? { ...u, is_trusted: newStatus } : u))
     } catch (error: any) {
       alert(`❌ حدث خطأ: ${error.message}`);
     }
@@ -61,10 +79,10 @@ export default function MasterPanel() {
     }
   }
 
-  // حساب الإحصائيات ديناميكياً
   const stats = {
     total: users.length,
     merchants: users.filter(u => u.role === 'merchant').length,
+    trustedMerchants: users.filter(u => u.role === 'merchant' && u.is_trusted).length,
     staff: users.filter(u => u.role === 'staff' || u.role === 'super_admin').length,
     customers: users.filter(u => !u.role || u.role === 'customer').length
   }
@@ -77,7 +95,7 @@ export default function MasterPanel() {
           <h1 className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-blue-500 flex items-center gap-3">
             <ShieldCheck size={36} className="text-emerald-400" /> الإدارة العليا 👑
           </h1>
-          <p className="text-sm text-slate-400 mt-2 font-bold">التحكم الكامل في حسابات النظام وصلاحيات الوصول</p>
+          <p className="text-sm text-slate-400 mt-2 font-bold">التحكم الكامل في حسابات النظام وصلاحيات الوصول والتجار</p>
         </div>
         
         <div className="relative w-full md:w-auto">
@@ -91,15 +109,17 @@ export default function MasterPanel() {
         </div>
       </div>
 
-      {/* شريط الإحصائيات السريع */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
         <div className="bg-slate-900 border border-slate-800 p-5 rounded-2xl flex items-center gap-4">
           <div className="bg-slate-800 p-3 rounded-xl text-emerald-400"><Users size={24}/></div>
           <div><p className="text-xs text-slate-400 font-bold">الإجمالي</p><p className="text-xl font-black">{stats.total}</p></div>
         </div>
         <div className="bg-slate-900 border border-slate-800 p-5 rounded-2xl flex items-center gap-4">
-          <div className="bg-slate-800 p-3 rounded-xl text-amber-400"><Store size={24}/></div>
-          <div><p className="text-xs text-slate-400 font-bold">التجار</p><p className="text-xl font-black">{stats.merchants}</p></div>
+          <div className="bg-slate-800 p-3 rounded-xl text-amber-400 relative">
+            <Store size={24}/>
+            {stats.trustedMerchants > 0 && <span className="absolute -top-1 -right-1 flex h-3 w-3"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75"></span><span className="relative inline-flex rounded-full h-3 w-3 bg-yellow-500"></span></span>}
+          </div>
+          <div><p className="text-xs text-slate-400 font-bold">التجار</p><p className="text-xl font-black">{stats.merchants} <span className="text-[10px] text-yellow-500 font-bold">({stats.trustedMerchants} موثوق)</span></p></div>
         </div>
         <div className="bg-slate-900 border border-slate-800 p-5 rounded-2xl flex items-center gap-4">
           <div className="bg-slate-800 p-3 rounded-xl text-slate-300"><User size={24}/></div>
@@ -131,14 +151,35 @@ export default function MasterPanel() {
                   {user.full_name?.charAt(0) || <User size={24} />}
                 </div>
                 <div>
-                  <h3 className="font-black text-lg">{user.full_name || 'مستخدم بدون اسم'}</h3>
-                  <span className={`text-[10px] px-3 py-1.5 rounded-lg font-black uppercase mt-1 inline-block tracking-wider ${getRoleBadgeColor(user.role || 'customer')}`}>
-                    {user.role || 'customer'}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-black text-lg">{user.full_name || 'مستخدم بدون اسم'}</h3>
+                    {user.is_trusted && <Star size={16} className="text-yellow-400 fill-yellow-400 animate-in zoom-in" />}
+                  </div>
+                  <div className="flex gap-2 items-center mt-1">
+                    <span className={`text-[10px] px-3 py-1 rounded-lg font-black uppercase tracking-wider ${getRoleBadgeColor(user.role || 'customer')}`}>
+                      {user.role || 'customer'}
+                    </span>
+                    {user.is_trusted && (
+                      <span className="text-[10px] px-3 py-1 rounded-lg font-black bg-yellow-500/10 text-yellow-500 border border-yellow-500/20">
+                        تاجر موثوق 👑
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
 
               <div className="flex flex-wrap gap-2">
+                {/* زر التوثيق (يظهر للتجار فقط) */}
+                {user.role === 'merchant' && (
+                  <button 
+                    onClick={() => toggleTrusted(user.id, user.is_trusted, user.full_name)} 
+                    className={`px-4 py-3 rounded-xl text-xs font-black flex items-center gap-2 transition-all active:scale-95 border ${user.is_trusted ? 'bg-rose-900/20 text-rose-500 border-rose-900/30 hover:bg-rose-600 hover:text-white' : 'bg-emerald-600/10 text-emerald-500 border-emerald-600/20 hover:bg-emerald-600 hover:text-white'}`}
+                  >
+                    <ShieldCheck size={16} /> 
+                    {user.is_trusted ? 'سحب التوثيق' : 'توثيق التاجر'}
+                  </button>
+                )}
+
                 <button onClick={() => updateRole(user.id, 'staff', user.full_name)} className="bg-blue-600/10 text-blue-500 hover:bg-blue-600 hover:text-white px-4 py-3 rounded-xl text-xs font-black flex items-center gap-2 transition-all active:scale-95 border border-blue-600/20">
                   <UserCog size={16} /> تعيين موظف
                 </button>
