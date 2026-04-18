@@ -1,7 +1,7 @@
 'use client'
 import React, { useEffect, useState } from 'react'
 import { createClient } from '@supabase/supabase-js'
-import { CheckCircle, XCircle, Store, Loader2, Calendar, Clock, AlertCircle, Package, RefreshCw } from 'lucide-react'
+import { CheckCircle, XCircle, Store, Loader2, Calendar, Clock, AlertCircle, Package, RefreshCw, Star } from 'lucide-react'
 
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
 
@@ -14,11 +14,9 @@ export default function StaffPanel() {
     fetchPendingMeals()
   }, [])
 
-  // دالة الجلب المطورة (المضادة للأخطاء)
   const fetchPendingMeals = async () => {
     setRefreshing(true)
     try {
-      // استخدام استعلام ذكي يجلب الوجبة حتى لو كان ملف التاجر غير مكتمل (Left Join)
       const { data, error } = await supabase
         .from('meals')
         .select(`
@@ -40,26 +38,39 @@ export default function StaffPanel() {
       }
     } catch (error: any) {
       console.error('Error fetching meals:', error.message)
-      // تنبيه صامت في حال فشل الجلب لكي لا يتوقف التطبيق
     } finally {
       setLoading(false)
       setRefreshing(false)
     }
   }
 
-  const handleApprove = async (mealId: number) => {
-    const confirmApprove = window.confirm('هل أنت متأكد من قبول هذا العرض ونشره في السوق؟')
+  // 👑 دالة القبول المطورة لتشمل العروض الذهبية
+  const handleApprove = async (mealId: number, isGolden: boolean) => {
+    const confirmMsg = isGolden 
+      ? '👑 هل أنت متأكد من تمييز هذا العرض كـ "عرض ذهبي"؟ سيظهر في أعلى السوق.' 
+      : '✅ هل أنت متأكد من قبول هذا العرض كـ "عرض عادي"؟'
+      
+    const confirmApprove = window.confirm(confirmMsg)
     if (!confirmApprove) return
 
     try {
+      // تحديث حالة الموافقة وحالة العرض الذهبي معاً
       const { error } = await supabase
         .from('meals')
-        .update({ is_approved: true })
+        .update({ 
+          is_approved: true,
+          is_golden: isGolden 
+        })
         .eq('id', mealId)
 
       if (error) throw error
-      alert('✅ تم قبول العرض ونشره بنجاح!')
-      // إزالة العرض من القائمة فوراً لتجربة مستخدم سلسة
+      
+      if (isGolden) {
+        alert('👑 تم قبول العرض وتتويجه كعرض ذهبي بنجاح!')
+      } else {
+        alert('✅ تم قبول العرض العادي ونشره بنجاح!')
+      }
+      
       setPendingMeals(prev => prev.filter(meal => meal.id !== mealId))
     } catch (error: any) {
       alert('❌ حدث خطأ أثناء القبول: ' + error.message)
@@ -96,7 +107,7 @@ export default function StaffPanel() {
   return (
     <div className="min-h-screen bg-gray-50 pb-20 font-sans text-right" dir="rtl">
       
-      {/* الهيدر المطور */}
+      {/* الهيدر */}
       <div className="bg-slate-900 text-white p-8 rounded-b-[40px] shadow-lg mb-8 relative overflow-hidden flex justify-between items-center">
         <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 rounded-full blur-3xl -mr-10 -mt-10"></div>
         <div className="relative z-10">
@@ -127,7 +138,6 @@ export default function StaffPanel() {
         ) : (
           <div className="grid grid-cols-1 gap-6">
             {pendingMeals.map(meal => {
-              // المعالجة الآمنة لبيانات التاجر
               const merchantData = Array.isArray(meal.profiles) ? meal.profiles[0] : meal.profiles;
               const merchantName = merchantData?.shop_name || merchantData?.full_name || 'تاجر جديد';
 
@@ -173,14 +183,28 @@ export default function StaffPanel() {
                       </div>
                     </div>
 
-                    <div className="flex gap-3 pt-4 border-t border-gray-100">
-                      <button onClick={() => handleApprove(meal.id)} className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white py-3.5 rounded-xl font-black text-sm flex justify-center items-center gap-2 transition-all active:scale-95 shadow-lg shadow-emerald-600/20">
-                        <CheckCircle size={18} /> قبول ونشر
+                    {/* أزرار القرار المطورة */}
+                    <div className="flex flex-col gap-3 pt-4 border-t border-gray-100">
+                      
+                      {/* الزر الذهبي */}
+                      <button onClick={() => handleApprove(meal.id, true)} className="w-full bg-gradient-to-r from-amber-400 to-yellow-500 hover:from-amber-500 hover:to-yellow-600 text-slate-900 py-3.5 rounded-xl font-black text-sm flex justify-center items-center gap-2 transition-all active:scale-95 shadow-lg shadow-amber-500/30">
+                        <Star size={18} className="fill-slate-900" /> قبول كعرض ذهبي 🔥
                       </button>
-                      <button onClick={() => handleReject(meal.id)} className="flex-1 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-100 py-3.5 rounded-xl font-black text-sm flex justify-center items-center gap-2 transition-all active:scale-95">
-                        <XCircle size={18} /> رفض وحذف
-                      </button>
+
+                      <div className="flex gap-3">
+                        {/* الزر العادي */}
+                        <button onClick={() => handleApprove(meal.id, false)} className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white py-3.5 rounded-xl font-black text-sm flex justify-center items-center gap-2 transition-all active:scale-95 shadow-md shadow-emerald-600/20">
+                          <CheckCircle size={18} /> قبول عادي
+                        </button>
+                        
+                        {/* زر الرفض */}
+                        <button onClick={() => handleReject(meal.id)} className="flex-1 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-100 py-3.5 rounded-xl font-black text-sm flex justify-center items-center gap-2 transition-all active:scale-95">
+                          <XCircle size={18} /> رفض وحذف
+                        </button>
+                      </div>
+
                     </div>
+
                   </div>
                 </div>
               );
