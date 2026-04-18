@@ -1,7 +1,7 @@
 'use client'
 import React, { useEffect, useState } from 'react'
 import { createClient } from '@supabase/supabase-js'
-import { Search, MapPin, Clock, ShoppingBag, Flame, Loader2, Store, Plus, Star, Sparkles, Calendar } from 'lucide-react'
+import { Search, MapPin, Clock, ShoppingBag, Flame, Loader2, Store, Plus, Star, Sparkles, Calendar, Heart } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import BottomNav from '@/components/BottomNav'
 import { useCart } from './context/CartContext'
@@ -15,13 +15,30 @@ export default function HomePage() {
   const [loading, setLoading] = useState(true)
   const [selectedCategory, setSelectedCategory] = useState('الكل')
   const [searchQuery, setSearchQuery] = useState('')
-  const router = useRouter()
   
+  // حالات المستخدم والمفضلة
+  const [user, setUser] = useState<any>(null)
+  const [favoriteIds, setFavoriteIds] = useState<number[]>([])
+  
+  const router = useRouter()
   const { addToCart, cart } = useCart()
 
   useEffect(() => {
+    checkUserAndFavorites()
     fetchMealsAndRatings()
   }, [selectedCategory])
+
+  // التحقق من الزبون وجلب مفضلاته السابقة لكي تظهر القلوب حمراء إذا كانت محفوظة
+  const checkUserAndFavorites = async () => {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (user) {
+      setUser(user)
+      const { data } = await supabase.from('favorites').select('meal_id').eq('user_id', user.id)
+      if (data) {
+        setFavoriteIds(data.map(f => f.meal_id))
+      }
+    }
+  }
 
   const fetchMealsAndRatings = async () => {
     setLoading(true)
@@ -30,7 +47,7 @@ export default function HomePage() {
       .select('*')
       .eq('is_approved', true) 
       .gt('quantity', 0)
-      .order('id', { ascending: false })
+      .order('created_at', { ascending: false })
 
     if (selectedCategory !== 'الكل') {
       query = query.eq('category', selectedCategory)
@@ -57,7 +74,7 @@ export default function HomePage() {
   }
 
   const handleAddToCart = (e: React.MouseEvent, meal: any) => {
-    e.stopPropagation() // لمنع فتح صفحة التفاصيل عند الضغط على زر "أضف للسلة"
+    e.stopPropagation() 
     addToCart({
       id: meal.id.toString(),
       name: meal.name,
@@ -66,6 +83,28 @@ export default function HomePage() {
       image: meal.image_url || 'https://via.placeholder.com/150',
       merchant_id: meal.merchant_id 
     })
+  }
+
+  // دالة إضافة وإزالة المفضلة (Optimistic UI)
+  const handleToggleFavorite = async (e: React.MouseEvent, mealId: number) => {
+    e.stopPropagation() // منع الانتقال لصفحة التفاصيل عند الضغط على القلب
+    
+    if (!user) {
+      alert('يرجى تسجيل الدخول كزبون لإضافة الوجبات إلى مفضلتك ❤️')
+      router.push('/welcome')
+      return
+    }
+
+    const isFav = favoriteIds.includes(mealId)
+    
+    // التحديث الفوري للواجهة لتبدو سريعة جداً للزبون
+    if (isFav) {
+      setFavoriteIds(prev => prev.filter(id => id !== mealId))
+      await supabase.from('favorites').delete().eq('user_id', user.id).eq('meal_id', mealId)
+    } else {
+      setFavoriteIds(prev => [...prev, mealId])
+      await supabase.from('favorites').insert([{ user_id: user.id, meal_id: mealId }])
+    }
   }
 
   const filteredMeals = meals.filter(meal => 
@@ -144,13 +183,20 @@ export default function HomePage() {
             {featuredMeals.map((meal) => (
               <div 
                 key={`feat-${meal.id}`} 
-                onClick={() => router.push(`/meal/${meal.id}`)} // الربط بصفحة التفاصيل
+                onClick={() => router.push(`/meal/${meal.id}`)}
                 className="cursor-pointer min-w-[280px] bg-slate-900 text-white rounded-[35px] overflow-hidden shadow-xl border border-slate-800 relative snap-center group"
               >
-                
                 <div className="absolute top-4 right-4 z-10 bg-amber-500 text-slate-900 text-[10px] font-black px-3 py-1.5 rounded-full shadow-[0_0_15px_rgba(245,158,11,0.5)]">
                   عرض خاص 🔥
                 </div>
+
+                {/* زر المفضلة للعروض المميزة */}
+                <button 
+                  onClick={(e) => handleToggleFavorite(e, meal.id)}
+                  className="absolute top-4 left-4 z-20 bg-white/20 backdrop-blur-md p-2 rounded-full hover:bg-white/40 transition-colors active:scale-90"
+                >
+                  <Heart size={16} className={favoriteIds.includes(meal.id) ? "fill-rose-500 text-rose-500" : "text-white"} />
+                </button>
                 
                 <div className="h-36 bg-gray-800 relative overflow-hidden">
                   <img src={meal.image_url} alt={meal.name} className="w-full h-full object-cover opacity-80 group-hover:scale-110 transition-transform duration-700" />
@@ -165,7 +211,7 @@ export default function HomePage() {
                       <p className="text-[10px] font-bold text-slate-400 line-through">{meal.original_price} {meal.currency || 'ل.س'}</p>
                     </div>
                     <button 
-                      onClick={(e) => handleAddToCart(e, meal)} // تحديث دالة الإضافة للسلة لمنع التداخل
+                      onClick={(e) => handleAddToCart(e, meal)} 
                       className="bg-amber-500 hover:bg-amber-400 text-slate-900 px-4 py-2 rounded-xl text-xs font-black shadow-lg active:scale-95 transition-all flex items-center gap-1"
                     >
                       <Plus size={14} /> إضافة
@@ -198,7 +244,7 @@ export default function HomePage() {
             {filteredMeals.map((meal) => (
               <div 
                 key={`norm-${meal.id}`} 
-                onClick={() => router.push(`/meal/${meal.id}`)} // الربط بصفحة التفاصيل
+                onClick={() => router.push(`/meal/${meal.id}`)}
                 className="cursor-pointer bg-white rounded-[35px] overflow-hidden shadow-sm border border-gray-100 relative group animate-in slide-in-from-bottom-4 duration-500 hover:shadow-md transition-shadow"
               >
                 
@@ -207,8 +253,16 @@ export default function HomePage() {
                   وفر {meal.original_price > 0 ? Math.round(((meal.original_price - meal.discounted_price) / meal.original_price) * 100) : 0}%
                 </div>
 
-                {/* شارة التقييم ⭐ */}
-                <div className="absolute top-4 left-4 z-10 bg-white/90 backdrop-blur text-gray-900 text-[10px] font-black px-3 py-1.5 rounded-full shadow-sm flex items-center gap-1">
+                {/* زر المفضلة (القلب التفاعلي) ❤️ */}
+                <button 
+                  onClick={(e) => handleToggleFavorite(e, meal.id)}
+                  className="absolute top-4 left-4 z-20 bg-white/90 backdrop-blur p-2.5 rounded-full shadow-sm hover:scale-110 active:scale-90 transition-transform"
+                >
+                  <Heart size={18} className={favoriteIds.includes(meal.id) ? "fill-rose-500 text-rose-500" : "text-gray-400 hover:text-rose-400"} />
+                </button>
+                
+                {/* شارة التقييم ⭐ (نقلناها للأسفل لترتيب أجمل) */}
+                <div className="absolute bottom-4 left-4 z-10 bg-white/95 backdrop-blur text-gray-900 text-[10px] font-black px-3 py-1.5 rounded-full shadow-sm flex items-center gap-1">
                   <Star size={12} className={meal.rating === 'جديد' ? 'text-gray-400' : 'text-amber-500 fill-amber-500'} />
                   {meal.rating}
                 </div>
@@ -241,7 +295,7 @@ export default function HomePage() {
 
                   <div className="flex gap-3 items-center pt-2">
                     <button 
-                      onClick={(e) => handleAddToCart(e, meal)} // تحديث دالة الإضافة للسلة لمنع التداخل
+                      onClick={(e) => handleAddToCart(e, meal)} 
                       className="flex-1 bg-emerald-600 text-white py-4 rounded-2xl text-sm font-black active:scale-95 transition-all shadow-md shadow-emerald-100 flex justify-center items-center gap-2 hover:bg-emerald-700"
                     >
                       <Plus size={18} /> أضف للسلة
