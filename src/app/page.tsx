@@ -28,7 +28,6 @@ export default function HomePage() {
     fetchMealsAndRatings()
   }, [selectedCategory])
 
-  // التحقق من الزبون وجلب مفضلاته السابقة لكي تظهر القلوب حمراء إذا كانت محفوظة
   const checkUserAndFavorites = async () => {
     const { data: { user } } = await supabase.auth.getUser()
     if (user) {
@@ -85,9 +84,8 @@ export default function HomePage() {
     })
   }
 
-  // دالة إضافة وإزالة المفضلة (Optimistic UI)
   const handleToggleFavorite = async (e: React.MouseEvent, mealId: number) => {
-    e.stopPropagation() // منع الانتقال لصفحة التفاصيل عند الضغط على القلب
+    e.stopPropagation() 
     
     if (!user) {
       alert('يرجى تسجيل الدخول كزبون لإضافة الوجبات إلى مفضلتك ❤️')
@@ -97,7 +95,6 @@ export default function HomePage() {
 
     const isFav = favoriteIds.includes(mealId)
     
-    // التحديث الفوري للواجهة لتبدو سريعة جداً للزبون
     if (isFav) {
       setFavoriteIds(prev => prev.filter(id => id !== mealId))
       await supabase.from('favorites').delete().eq('user_id', user.id).eq('meal_id', mealId)
@@ -107,12 +104,14 @@ export default function HomePage() {
     }
   }
 
-  const filteredMeals = meals.filter(meal => 
+  // 👑 الفرز الذكي: العروض الذهبية مقابل العروض العادية
+  const goldenMeals = meals.filter(meal => meal.is_golden === true)
+  const regularMeals = meals.filter(meal => meal.is_golden !== true)
+
+  const filteredRegularMeals = regularMeals.filter(meal => 
     meal.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
     meal.category.includes(searchQuery)
   )
-
-  const featuredMeals = meals.filter(meal => meal.is_featured === true)
 
   return (
     <div className="min-h-screen bg-gray-50 pb-28 text-right font-sans" dir="rtl">
@@ -172,33 +171,32 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* قسم العروض المميزة 🏆 */}
-      {!searchQuery && selectedCategory === 'الكل' && featuredMeals.length > 0 && (
+      {/* 👑 قسم العروض الذهبية (VIP) */}
+      {!searchQuery && selectedCategory === 'الكل' && goldenMeals.length > 0 && (
         <div className="px-6 mt-6">
-          <h2 className="text-lg font-black text-gray-900 mb-4 flex items-center gap-2">
-            <Sparkles size={20} className="text-amber-500 fill-amber-500 animate-pulse" /> عروض مميزة وحصرية 🏆
+          <h2 className="text-lg font-black text-transparent bg-clip-text bg-gradient-to-r from-amber-500 to-yellow-600 mb-4 flex items-center gap-2">
+            <Sparkles size={20} className="text-amber-500 fill-amber-500 animate-pulse" /> العروض الذهبية 👑
           </h2>
           
           <div className="flex gap-4 overflow-x-auto hide-scrollbar pb-4 snap-x">
-            {featuredMeals.map((meal) => (
+            {goldenMeals.map((meal) => (
               <div 
-                key={`feat-${meal.id}`} 
+                key={`gold-${meal.id}`} 
                 onClick={() => router.push(`/meal/${meal.id}`)}
-                className="cursor-pointer min-w-[280px] bg-slate-900 text-white rounded-[35px] overflow-hidden shadow-xl border border-slate-800 relative snap-center group"
+                className="cursor-pointer min-w-[280px] bg-gradient-to-br from-slate-900 to-slate-800 text-white rounded-[35px] overflow-hidden shadow-xl border border-amber-500/30 relative snap-center group"
               >
-                <div className="absolute top-4 right-4 z-10 bg-amber-500 text-slate-900 text-[10px] font-black px-3 py-1.5 rounded-full shadow-[0_0_15px_rgba(245,158,11,0.5)]">
-                  عرض خاص 🔥
+                <div className="absolute top-4 right-4 z-10 bg-gradient-to-r from-amber-400 to-yellow-500 text-slate-900 text-[10px] font-black px-3 py-1.5 rounded-full shadow-[0_0_15px_rgba(245,158,11,0.5)] flex items-center gap-1">
+                  <Star size={12} className="fill-slate-900"/> عرض مميز
                 </div>
 
-                {/* زر المفضلة للعروض المميزة */}
                 <button 
                   onClick={(e) => handleToggleFavorite(e, meal.id)}
-                  className="absolute top-4 left-4 z-20 bg-white/20 backdrop-blur-md p-2 rounded-full hover:bg-white/40 transition-colors active:scale-90"
+                  className="absolute top-4 left-4 z-20 bg-white/10 backdrop-blur-md p-2 rounded-full hover:bg-white/30 transition-colors active:scale-90 border border-white/10"
                 >
                   <Heart size={16} className={favoriteIds.includes(meal.id) ? "fill-rose-500 text-rose-500" : "text-white"} />
                 </button>
                 
-                <div className="h-36 bg-gray-800 relative overflow-hidden">
+                <div className="h-36 bg-slate-800 relative overflow-hidden">
                   <img src={meal.image_url} alt={meal.name} className="w-full h-full object-cover opacity-80 group-hover:scale-110 transition-transform duration-700" />
                   <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-transparent to-transparent"></div>
                 </div>
@@ -212,7 +210,7 @@ export default function HomePage() {
                     </div>
                     <button 
                       onClick={(e) => handleAddToCart(e, meal)} 
-                      className="bg-amber-500 hover:bg-amber-400 text-slate-900 px-4 py-2 rounded-xl text-xs font-black shadow-lg active:scale-95 transition-all flex items-center gap-1"
+                      className="bg-gradient-to-r from-amber-400 to-yellow-500 hover:from-amber-500 hover:to-yellow-600 text-slate-900 px-4 py-2 rounded-xl text-xs font-black shadow-lg active:scale-95 transition-all flex items-center gap-1"
                     >
                       <Plus size={14} /> إضافة
                     </button>
@@ -234,14 +232,14 @@ export default function HomePage() {
           <div className="flex justify-center items-center py-20 text-emerald-600">
             <Loader2 className="animate-spin w-10 h-10" />
           </div>
-        ) : filteredMeals.length === 0 ? (
+        ) : filteredRegularMeals.length === 0 ? (
           <div className="text-center bg-white p-10 rounded-[35px] border border-gray-100 shadow-sm mt-4 text-gray-400 font-bold">
             <Store size={40} className="mx-auto mb-4 opacity-20" />
             {searchQuery ? 'لا توجد نتائج تطابق بحثك' : 'لا توجد عروض حالياً في هذا القسم'}
           </div>
         ) : (
           <div className="space-y-5">
-            {filteredMeals.map((meal) => (
+            {filteredRegularMeals.map((meal) => (
               <div 
                 key={`norm-${meal.id}`} 
                 onClick={() => router.push(`/meal/${meal.id}`)}
@@ -261,7 +259,7 @@ export default function HomePage() {
                   <Heart size={18} className={favoriteIds.includes(meal.id) ? "fill-rose-500 text-rose-500" : "text-gray-400 hover:text-rose-400"} />
                 </button>
                 
-                {/* شارة التقييم ⭐ (نقلناها للأسفل لترتيب أجمل) */}
+                {/* شارة التقييم ⭐ */}
                 <div className="absolute bottom-4 left-4 z-10 bg-white/95 backdrop-blur text-gray-900 text-[10px] font-black px-3 py-1.5 rounded-full shadow-sm flex items-center gap-1">
                   <Star size={12} className={meal.rating === 'جديد' ? 'text-gray-400' : 'text-amber-500 fill-amber-500'} />
                   {meal.rating}

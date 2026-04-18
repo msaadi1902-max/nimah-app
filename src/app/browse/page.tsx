@@ -1,19 +1,17 @@
 'use client'
 import React, { useEffect, useState } from 'react'
 import { createClient } from '@supabase/supabase-js'
-import { Search, Map as MapIcon, List, SlidersHorizontal, Store, Utensils, ShoppingCart, Flower2, Clock, Loader2, Shirt, Droplet, Package, Smartphone, Sofa, Heart, X, MoreHorizontal, Calendar } from 'lucide-react'
+import { Search, Map as MapIcon, List, SlidersHorizontal, Store, Utensils, ShoppingCart, Flower2, Clock, Loader2, Shirt, Droplet, Package, Smartphone, Sofa, Heart, X, MoreHorizontal, Calendar, Star } from 'lucide-react'
 import BottomNav from '@/components/BottomNav'
 import dynamic from 'next/dynamic'
 
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
 
-// استدعاء الخريطة ديناميكياً لتجنب أخطاء السيرفر
 const DynamicMap = dynamic(() => import('@/components/MapView'), { 
   ssr: false, 
   loading: () => <div className="w-full h-full flex flex-col justify-center items-center bg-emerald-50 text-emerald-600"><Loader2 className="animate-spin mb-2" size={30} /><span className="text-xs font-bold">جاري تحميل الخريطة...</span></div>
 })
 
-// الأقسام كما طلبتها بالضبط
 const CATEGORIES = [
   { id: 'الكل', name: 'الكل', icon: Store },
   { id: 'مطاعم', name: 'مطاعم', icon: Utensils },
@@ -35,9 +33,8 @@ export default function BrowsePage() {
   const [activeCategory, setActiveCategory] = useState('الكل')
   const [searchQuery, setSearchQuery] = useState('')
   
-  // حالات الفلتر الجديد والمفضلة
   const [showFilter, setShowFilter] = useState(false)
-  const [sortBy, setSortBy] = useState('newest') // newest, price_low, price_high
+  const [sortBy, setSortBy] = useState('newest') 
   const [favorites, setFavorites] = useState<number[]>([])
 
   const fetchItems = async () => {
@@ -143,7 +140,15 @@ export default function BrowsePage() {
 
                       <div className="h-32 relative bg-gray-100">
                         <img src={item.image_url} alt={item.name} className="w-full h-full object-cover" />
-                        <div className="absolute top-2 right-2 bg-rose-500 text-white px-2 py-1 rounded-xl text-[10px] font-black shadow-sm">
+                        
+                        {/* 👑 الإضافة الجديدة: شارة العرض الذهبي تظهر على الوجبة */}
+                        {item.is_golden && (
+                          <div className="absolute top-2 right-2 bg-gradient-to-r from-amber-400 to-yellow-500 text-slate-900 px-2 py-1 rounded-xl text-[10px] font-black shadow-sm flex items-center gap-1">
+                            <Star size={10} className="fill-slate-900" /> ذهبي
+                          </div>
+                        )}
+                        
+                        <div className={`absolute ${item.is_golden ? 'top-8' : 'top-2'} right-2 bg-rose-500 text-white px-2 py-1 rounded-xl text-[10px] font-black shadow-sm transition-all`}>
                           -{item.original_price > 0 ? Math.round(((item.original_price - item.discounted_price) / item.original_price) * 100) : 0}%
                         </div>
                       </div>
@@ -154,7 +159,6 @@ export default function BrowsePage() {
                           </p>
                           <h3 className="font-black text-sm text-gray-900 leading-tight mb-2 line-clamp-2">{item.name}</h3>
                           
-                          {/* الإضافة الجديدة: تواريخ الصلاحية */}
                           {item.start_date && item.end_date && (
                             <p className="text-[8px] text-gray-500 font-bold flex items-center gap-1 mt-1 bg-gray-50 w-fit px-1.5 py-0.5 rounded-md">
                               <Calendar size={8} className="text-orange-400" /> من {item.start_date} لـ {item.end_date}
@@ -163,7 +167,6 @@ export default function BrowsePage() {
                         </div>
                         <div className="flex justify-between items-end mt-2">
                           <div>
-                            {/* الإضافة الجديدة: العملة الديناميكية */}
                             <span className="block text-gray-400 text-[10px] line-through font-bold">{item.original_price} {item.currency || 'ل.س'}</span>
                             <span className="font-black text-emerald-700 text-base">{item.discounted_price} {item.currency || 'ل.س'}</span>
                           </div>
