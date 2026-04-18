@@ -1,6 +1,6 @@
 'use client'
 import React, { useEffect, useState } from 'react'
-import { Home, Search, Ticket, User, Store } from 'lucide-react'
+import { Home, Search, Ticket, User, Store, Heart } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 
 export default function BottomNav({ activeTab }: { activeTab: string }) {
@@ -13,11 +13,13 @@ export default function BottomNav({ activeTab }: { activeTab: string }) {
     setRole(userRole)
   }, [])
 
-  // بناء المصفوفة بشكل ديناميكي لضمان وجود 4 أزرار فقط دائماً
+  // بناء المصفوفة بشكل ديناميكي لتشمل 5 أزرار بتوزيع متناسق
   const tabs = [
     { id: 'home', icon: Home, label: 'الرئيسية', path: '/' },
     { id: 'browse', icon: Search, label: 'تصفح', path: '/browse' },
-    // الزر الثالث يتغير حسب دور المستخدم (تاجر أو زبون/أدمن)
+    // الزر الجديد: المفضلة (في المنتصف لسهولة الوصول)
+    { id: 'favorites', icon: Heart, label: 'المفضلة', path: '/favorites' },
+    // الزر الرابع يتغير حسب دور المستخدم (تاجر أو زبون/أدمن)
     role === 'merchant'
       ? { id: 'merchant', icon: Store, label: 'أعمالي', path: '/merchant-dashboard' }
       : { id: 'tickets', icon: Ticket, label: 'تذاكري', path: '/tickets' },
@@ -30,17 +32,21 @@ export default function BottomNav({ activeTab }: { activeTab: string }) {
         {tabs.map((tab) => {
           const isActive = activeTab === tab.id
           const Icon = tab.icon
+          
           return (
             <button
               key={tab.id}
               onClick={() => router.push(tab.path)}
-              className={`flex flex-col items-center gap-1.5 transition-all duration-300 ${
+              className={`flex flex-col items-center gap-1.5 transition-all duration-300 w-14 ${
                 isActive ? 'text-emerald-600 scale-110' : 'text-gray-400 hover:text-emerald-400'
               }`}
             >
-              {/* تأثير جميل للأيقونة عند التفعيل */}
-              <Icon size={isActive ? 24 : 22} className={isActive ? 'fill-emerald-100' : ''} />
-              <span className={`text-[10px] font-black ${isActive ? 'opacity-100' : 'opacity-70'}`}>
+              {/* تأثير جميل للأيقونة عند التفعيل، مع لمسة خاصة للقلب */}
+              <Icon 
+                size={isActive ? 24 : 22} 
+                className={`${isActive ? 'fill-emerald-100' : ''} ${isActive && tab.id === 'favorites' ? 'fill-rose-100 text-rose-500' : ''}`} 
+              />
+              <span className={`text-[10px] font-black ${isActive ? 'opacity-100' : 'opacity-70'} ${isActive && tab.id === 'favorites' ? 'text-rose-500' : ''}`}>
                 {tab.label}
               </span>
             </button>
