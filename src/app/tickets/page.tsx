@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@supabase/supabase-js'
-import { ArrowRight, Ticket, MapPin, Clock, Loader2, QrCode, CheckCircle2, Star, MessageSquare } from 'lucide-react'
+import { ArrowRight, Ticket, MapPin, Clock, Loader2, QrCode, CheckCircle2, Star, MessageSquare, ExternalLink } from 'lucide-react'
 import BottomNav from '@/components/BottomNav'
 
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
@@ -12,7 +12,7 @@ export default function TicketsPage() {
   const [orders, setOrders] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
-  // حالات نافذة التقييم المنبثقة
+  // حالات نافذة التقييم
   const [reviewModalOpen, setReviewModalOpen] = useState(false)
   const [selectedOrder, setSelectedOrder] = useState<any>(null)
   const [rating, setRating] = useState(0)
@@ -24,26 +24,28 @@ export default function TicketsPage() {
   }, [])
 
   const fetchMyOrders = async () => {
-    // 1. معرفة من هو الزبون الحالي
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    
-    if (authError || !user) {
-      router.replace('/welcome')
-      return
+    try {
+      const { data: { user }, error: authError } = await supabase.auth.getUser()
+      if (authError || !user) {
+        router.replace('/welcome')
+        return
+      }
+
+      // جلب الطلبات (نعتمد على user_id أو customer_email)
+      const { data, error } = await supabase
+        .from('orders')
+        .select('*')
+        .eq('user_id', user.id) // يفضل استخدام user_id إذا كان موجوداً
+        .order('created_at', { ascending: false })
+
+      if (data) setOrders(data)
+    } catch (error) {
+      console.error("Error fetching orders:", error)
+    } finally {
+      setLoading(false)
     }
-
-    // 2. جلب الطلبات الخاصة بهذا الزبون
-    const { data, error } = await supabase
-      .from('orders')
-      .select('*')
-      .eq('customer_email', user.email)
-      .order('id', { ascending: false }) // عرض الأحدث أولاً
-
-    if (data) setOrders(data)
-    setLoading(false)
   }
 
-  // دوال نظام التقييم
   const openReviewModal = (order: any) => {
     setSelectedOrder(order)
     setRating(0)
@@ -56,22 +58,19 @@ export default function TicketsPage() {
     
     setSubmittingReview(true)
     try {
-      // 1. حفظ التقييم في جدول reviews
       const { error: reviewError } = await supabase.from('reviews').insert([{
         order_id: selectedOrder.id,
         merchant_id: selectedOrder.merchant_id,
-        customer_email: selectedOrder.customer_email,
+        user_id: selectedOrder.user_id,
         rating: rating,
         comment: comment
       }])
 
       if (reviewError) throw reviewError
 
-      // 2. تحديث الطلب ليصبح "تم التقييم"
       await supabase.from('orders').update({ is_reviewed: true }).eq('id', selectedOrder.id)
 
       alert("شكراً لك! تم إرسال تقييمك بنجاح 🌟")
-      // تحديث الواجهة فوراً
       setOrders(orders.map(o => o.id === selectedOrder.id ? { ...o, is_reviewed: true } : o))
       setReviewModalOpen(false)
     } catch (error: any) {
@@ -84,7 +83,7 @@ export default function TicketsPage() {
   return (
     <div className="min-h-screen bg-gray-50 pb-28 text-right font-sans" dir="rtl">
       
-      {/* الهيدر المطور */}
+      {/* الهيدر */}
       <div className="bg-emerald-600 text-white p-6 pt-12 pb-8 rounded-b-[40px] shadow-lg mb-6 relative overflow-hidden">
         <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-2xl -mr-10 -mt-10"></div>
         <div className="flex items-center justify-between mb-4 relative z-10">
@@ -111,29 +110,23 @@ export default function TicketsPage() {
             <Ticket size={60} className="mx-auto text-gray-200 mb-4" />
             <h3 className="font-black text-gray-900 text-lg mb-2">لا توجد تذاكر حالياً</h3>
             <p className="text-gray-400 font-bold text-xs mb-8">سلتك فارغة.. ابدأ بإنقاذ وجبتك الأولى ووفر المال!</p>
-            <button 
-              onClick={() => router.push('/')} 
-              className="bg-emerald-600 text-white px-8 py-4 rounded-2xl font-black shadow-lg shadow-emerald-100 active:scale-95 transition-all w-full"
-            >
+            <button onClick={() => router.push('/')} className="bg-emerald-600 text-white px-8 py-4 rounded-2xl font-black shadow-lg shadow-emerald-100 active:scale-95 transition-all w-full">
               تصفح عروض اليوم 🍕
             </button>
           </div>
         ) : (
           orders.map((order) => (
             <div key={order.id} className="animate-in slide-in-from-bottom-5 duration-500">
-              {/* تصميم التذكرة الساحر */}
               <div className="bg-white rounded-[35px] shadow-md overflow-hidden border border-gray-100 relative group transition-all hover:shadow-xl">
                 
-                {/* الجزء العلوي من التذكرة (يتغير لونه إذا تم الاستلام) */}
                 <div className={`${order.status === 'completed' ? 'bg-gray-100' : 'bg-emerald-50'} p-6 border-b-2 border-dashed border-gray-200 relative transition-colors`}>
-                  {/* الدوائر الجانبية لشكل التذكرة */}
                   <div className="absolute -bottom-3 -left-3 w-6 h-6 bg-gray-50 rounded-full border border-gray-100"></div>
                   <div className="absolute -bottom-3 -right-3 w-6 h-6 bg-gray-50 rounded-full border border-gray-100"></div>
                   
                   <div className="flex justify-between items-start mb-4">
                     <div>
                       <h3 className={`font-black text-lg leading-tight ${order.status === 'completed' ? 'text-gray-600' : 'text-gray-900'}`}>
-                        {order.meal_name}
+                        {order.meal_name || 'وجبة إنقاذ'}
                       </h3>
                       <div className="flex items-center gap-1.5 mt-2">
                         <CheckCircle2 size={14} className={order.status === 'completed' ? 'text-gray-400' : 'text-emerald-500'} />
@@ -143,7 +136,6 @@ export default function TicketsPage() {
                       </div>
                     </div>
                     
-                    {/* إخفاء الـ QR Code إذا تم الاستلام */}
                     {order.status !== 'completed' && (
                       <div className="bg-gray-900 text-white p-2.5 rounded-2xl shadow-lg">
                         <QrCode size={24} />
@@ -156,46 +148,38 @@ export default function TicketsPage() {
                       <Clock size={14} className="text-gray-400" />
                       <span>وقت الاستلام: <span className="text-gray-900">حسب موعد العرض</span></span>
                     </div>
-                    <div className="flex items-center gap-2 text-gray-500 font-bold text-[10px]">
-                      <MapPin size={14} className="text-rose-500" />
-                      <span>الموقع: راجع موقع التاجر على الخريطة</span>
-                    </div>
                   </div>
                 </div>
                 
-                {/* الجزء السفلي */}
                 <div className="p-5 bg-white flex justify-between items-center px-8">
                   <div className="text-right">
                     <p className="text-[9px] font-black text-gray-400 uppercase tracking-tighter mb-1">كود الحجز الفريد</p>
                     <span className={`text-lg font-mono font-black tracking-[5px] ${order.status === 'completed' ? 'text-gray-400 line-through' : 'text-gray-900'}`}>
-                      #{String(order.id).substring(0, 5).toUpperCase()}
+                      {order.ticket_number || `#${String(order.id).substring(0, 5).toUpperCase()}`}
                     </span>
                   </div>
                   
                   <div className="text-left flex flex-col items-end gap-2">
-                    {/* زر التقييم يظهر فقط للطلبات المكتملة غير المقيمة */}
-                    {order.status === 'completed' && !order.is_reviewed && (
+                    {/* زر الدخول لتفاصيل التذكرة إذا لم يتم الاستلام */}
+                    {order.status !== 'completed' && (
                       <button 
-                        onClick={() => openReviewModal(order)}
-                        className="bg-amber-100 text-amber-700 px-4 py-2 rounded-xl text-xs font-black flex items-center gap-1.5 hover:bg-amber-200 transition-colors shadow-sm"
+                        onClick={() => router.push(`/my-ticket?order_no=${order.ticket_number || order.id}`)}
+                        className="bg-emerald-100 text-emerald-700 px-4 py-2 rounded-xl text-xs font-black flex items-center gap-1.5 hover:bg-emerald-200 transition-colors shadow-sm"
                       >
+                        عرض التذكرة <ExternalLink size={14} />
+                      </button>
+                    )}
+
+                    {order.status === 'completed' && !order.is_reviewed && (
+                      <button onClick={() => openReviewModal(order)} className="bg-amber-100 text-amber-700 px-4 py-2 rounded-xl text-xs font-black flex items-center gap-1.5 hover:bg-amber-200 transition-colors shadow-sm">
                         <Star size={14} className="fill-amber-500 text-amber-500" /> قيّم تجربتك
                       </button>
                     )}
 
-                    {/* شارة "تم التقييم" */}
                     {order.is_reviewed && (
                       <span className="text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-lg text-[10px] font-black flex items-center gap-1 border border-emerald-100">
                         <Star size={12} className="fill-emerald-500" /> تم التقييم
                       </span>
-                    )}
-
-                    {/* إظهار السعر إذا لم يتم الاستلام بعد */}
-                    {order.status !== 'completed' && (
-                      <>
-                        <p className="text-[9px] font-black text-gray-400 mb-0.5">القيمة المدفوعة</p>
-                        <span className="font-black text-2xl text-emerald-700 leading-none">{order.price} €</span>
-                      </>
                     )}
                   </div>
                 </div>
@@ -205,14 +189,13 @@ export default function TicketsPage() {
         )}
       </div>
 
-      {/* نافذة التقييم المنبثقة (Modal) */}
+      {/* نافذة التقييم المنبثقة (Modal) - محتفظ بها بالكامل */}
       {reviewModalOpen && (
         <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-6 animate-in fade-in duration-300">
           <div className="bg-white rounded-[40px] p-8 w-full max-w-sm shadow-2xl relative animate-in zoom-in-95 duration-300 border border-gray-100">
             <h2 className="text-2xl font-black text-gray-900 mb-2 text-center">كيف كانت الوجبة؟ 😋</h2>
             <p className="text-xs text-gray-500 text-center font-bold mb-8 leading-relaxed">شارك رأيك لمساعدة الآخرين وتشجيع المتجر على تقليل الهدر.</p>
             
-            {/* نجوم التقييم */}
             <div className="flex justify-center gap-3 mb-8 cursor-pointer" dir="ltr">
               {[1, 2, 3, 4, 5].map((star) => (
                 <Star 
@@ -224,7 +207,6 @@ export default function TicketsPage() {
               ))}
             </div>
 
-            {/* مربع التعليق */}
             <div className="mb-8 relative group">
               <MessageSquare size={18} className="absolute top-4 right-4 text-gray-300 group-focus-within:text-emerald-500 transition-colors" />
               <textarea 
@@ -236,24 +218,16 @@ export default function TicketsPage() {
             </div>
 
             <div className="flex gap-3">
-              <button 
-                onClick={() => setReviewModalOpen(false)}
-                className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-600 py-4 rounded-2xl font-black text-sm transition-colors"
-              >
+              <button onClick={() => setReviewModalOpen(false)} className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-600 py-4 rounded-2xl font-black text-sm transition-colors">
                 إلغاء
               </button>
-              <button 
-                onClick={submitReview}
-                disabled={submittingReview}
-                className="flex-[2] bg-emerald-600 hover:bg-emerald-700 text-white py-4 rounded-2xl font-black text-sm flex items-center justify-center gap-2 disabled:opacity-50 shadow-xl shadow-emerald-200 transition-all active:scale-95"
-              >
+              <button onClick={submitReview} disabled={submittingReview} className="flex-[2] bg-emerald-600 hover:bg-emerald-700 text-white py-4 rounded-2xl font-black text-sm flex items-center justify-center gap-2 disabled:opacity-50 shadow-xl shadow-emerald-200 transition-all active:scale-95">
                 {submittingReview ? <Loader2 className="animate-spin" /> : 'إرسال التقييم ⭐'}
               </button>
             </div>
           </div>
         </div>
       )}
-
       <BottomNav activeTab="tickets" />
     </div>
   )
