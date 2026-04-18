@@ -4,52 +4,42 @@ import type { NextRequest } from 'next/server'
 export function middleware(request: NextRequest) {
   const path = request.nextUrl.pathname
 
-  // 1. تحديد ما هي المسارات المحمية في التطبيق بدقة
   const isMerchantRoute = path.startsWith('/merchant') || path.startsWith('/merchant-orders') || path.startsWith('/merchant-dashboard')
   const isCustomerRoute = path.startsWith('/tickets')
   const isStaffRoute = path.startsWith('/staff-panel')
   const isMasterRoute = path.startsWith('/master-panel')
 
-  // 2. فحص "بطاقة الهوية" (الكوكيز)
   const userRole = request.cookies.get('user_role')?.value
 
-  // 👑 السماح بفتح بوابة الإدارة (تسجيل الدخول السري) دائماً للجميع
-  if (path === '/admin') {
+  // 👑 السماح بفتح بوابة الإدارة بمرونة عالية
+  if (path.startsWith('/admin')) {
     return NextResponse.next()
   }
 
-  // --- القواعد الأمنية المحدثة ---
-
-  // أ) منع الغرباء من دخول أي لوحة تحكم وتوجيههم لشاشة الترحيب
+  // منع الغرباء
   if (!userRole && (isMerchantRoute || isCustomerRoute || isStaffRoute || isMasterRoute)) {
     return NextResponse.redirect(new URL('/welcome', request.url))
   }
 
-  // ب) توجيه الزبون إذا حاول التسلل للتاجر
   if (isMerchantRoute && userRole === 'customer') {
     return NextResponse.redirect(new URL('/', request.url))
   }
 
-  // ج) توجيه التاجر إذا حاول التسلل لصفحة الزبون
   if (isCustomerRoute && userRole === 'merchant') {
     return NextResponse.redirect(new URL('/merchant-dashboard', request.url))
   }
 
-  // د) حماية لوحة الموظفين (لا يدخلها إلا staff أو super_admin)
   if (isStaffRoute && userRole !== 'staff' && userRole !== 'super_admin') {
     return NextResponse.redirect(new URL('/', request.url))
   }
 
-  // هـ) حماية لوحة المدير العام العليا (لا يدخلها إلا super_admin)
   if (isMasterRoute && userRole !== 'super_admin') {
     return NextResponse.redirect(new URL('/', request.url))
   }
 
-  // إذا كانت كل أموره سليمة، اسمح له بالمرور
   return NextResponse.next()
 }
 
-// تسريع أداء الحارس بتحديد المسارات المطلوبة فقط
 export const config = {
   matcher: [
     '/merchant/:path*', 
@@ -58,6 +48,6 @@ export const config = {
     '/tickets/:path*',
     '/staff-panel/:path*',
     '/master-panel/:path*',
-    '/admin'
+    '/admin/:path*'
   ]
 }

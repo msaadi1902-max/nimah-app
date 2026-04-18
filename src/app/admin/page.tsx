@@ -1,8 +1,8 @@
 'use client'
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@supabase/supabase-js'
-import { ShieldAlert, Lock, Mail, Loader2, ArrowLeft } from 'lucide-react'
+import { ShieldAlert, Lock, Mail, Loader2, ArrowLeft, Eye, EyeOff } from 'lucide-react'
 
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
 
@@ -12,6 +12,20 @@ export default function AdminPortal() {
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
+
+  // 🌟 التحقق التلقائي الذكي: إذا كان المدير مسجلاً بالفعل، لا داعي لتسجيل الدخول مرة أخرى
+  useEffect(() => {
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (session) {
+        const { data } = await supabase.from('profiles').select('role').eq('id', session.user.id).single()
+        if (data?.role === 'super_admin') router.replace('/master-panel')
+        if (data?.role === 'staff') router.replace('/staff-panel')
+      }
+    }
+    checkSession()
+  }, [router])
 
   const handleAdminLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -41,7 +55,6 @@ export default function AdminPortal() {
 
       // 3. التوجيه الذكي حسب الرتبة
       if (role === 'super_admin') {
-        // تنظيف كوكيز الزبائن لتجنب التعارض
         document.cookie = "user_role=super_admin; path=/;";
         localStorage.setItem('user_role', 'super_admin');
         alert('👑 أهلاً بك سيدي المدير.')
@@ -69,8 +82,8 @@ export default function AdminPortal() {
   return (
     <div className="min-h-screen bg-slate-950 flex flex-col justify-center items-center p-6 font-sans text-right" dir="rtl">
       
-      <div className="w-full max-w-md bg-slate-900 p-8 rounded-[40px] border border-slate-800 shadow-2xl relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-32 h-32 bg-rose-500/10 rounded-full blur-3xl -mr-10 -mt-10"></div>
+      <div className="w-full max-w-md bg-slate-900 p-8 rounded-[40px] border border-slate-800 shadow-2xl relative overflow-hidden animate-in zoom-in-95 duration-500">
+        <div className="absolute top-0 right-0 w-32 h-32 bg-rose-500/10 rounded-full blur-3xl -mr-10 -mt-10 animate-pulse"></div>
         
         <div className="text-center mb-8 relative z-10">
           <div className="w-20 h-20 bg-slate-800 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-inner border border-slate-700">
@@ -87,8 +100,8 @@ export default function AdminPortal() {
         )}
 
         <form onSubmit={handleAdminLogin} className="space-y-5 relative z-10">
-          <div className="relative">
-            <Mail className="absolute right-4 top-4 h-5 w-5 text-slate-500" />
+          <div className="relative group">
+            <Mail className="absolute right-4 top-4 h-5 w-5 text-slate-500 group-focus-within:text-rose-500 transition-colors" />
             <input 
               type="email" 
               required 
@@ -99,22 +112,29 @@ export default function AdminPortal() {
             />
           </div>
 
-          <div className="relative">
-            <Lock className="absolute right-4 top-4 h-5 w-5 text-slate-500" />
+          <div className="relative group">
+            <Lock className="absolute right-4 top-4 h-5 w-5 text-slate-500 group-focus-within:text-rose-500 transition-colors" />
             <input 
-              type="password" 
+              type={showPassword ? "text" : "password"} 
               required 
               placeholder="كلمة المرور" 
               value={password} 
               onChange={(e) => setPassword(e.target.value)} 
-              className="w-full bg-slate-950 border border-slate-800 rounded-2xl py-4 pr-12 pl-4 text-white font-black focus:border-rose-500 focus:outline-none transition-colors" 
+              className="w-full bg-slate-950 border border-slate-800 rounded-2xl py-4 pr-12 pl-12 text-white font-black focus:border-rose-500 focus:outline-none transition-colors" 
             />
+            <button 
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute left-4 top-4 text-slate-500 hover:text-rose-400 transition-colors focus:outline-none"
+            >
+              {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+            </button>
           </div>
 
           <button 
             type="submit" 
             disabled={loading}
-            className="w-full bg-rose-600 hover:bg-rose-500 text-white py-4 rounded-2xl font-black text-lg mt-4 shadow-lg shadow-rose-900/50 active:scale-95 transition-all flex justify-center items-center gap-2"
+            className="w-full bg-rose-600 hover:bg-rose-500 text-white py-4 rounded-2xl font-black text-lg mt-4 shadow-lg shadow-rose-900/50 active:scale-95 transition-all flex justify-center items-center gap-2 disabled:opacity-50"
           >
             {loading ? <Loader2 className="animate-spin" /> : 'دخول آمن'}
           </button>

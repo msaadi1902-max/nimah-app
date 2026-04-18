@@ -1,5 +1,5 @@
 'use client'
-import React, { useState, useEffect } from 'react'
+import React, { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { User, Store, ArrowLeft, CheckCircle2 } from 'lucide-react'
 
@@ -7,37 +7,29 @@ export default function WelcomePage() {
   const router = useRouter()
   const [role, setRole] = useState<'customer' | 'merchant' | null>(null)
   
-  // حالة مراقبة النقر السري
-  const [secretClicks, setSecretClicks] = useState(0)
-
-  // تأثير برمجي لمراقبة تتابع النقرات (إذا ضغط 5 مرات بسرعة يفتح الإدارة)
-  useEffect(() => {
-    if (secretClicks >= 5) {
-      router.push('/admin') // فتح البوابة السرية
-      setSecretClicks(0) // تصفير العداد
-    }
-    
-    // إذا نقر ولكن لم يكمل 5 نقرات خلال ثانية ونصف، نصفر العداد
-    if (secretClicks > 0) {
-      const timer = setTimeout(() => setSecretClicks(0), 1500)
-      return () => clearTimeout(timer)
-    }
-  }, [secretClicks, router])
+  // الذاكرة الصامتة للنقرات السرية (لا تسبب تقطيعاً في الشاشة)
+  const clickCountRef = useRef(0)
+  const timerRef = useRef<NodeJS.Timeout | null>(null)
 
   const handleSecretLogoClick = () => {
-    setSecretClicks(prev => prev + 1)
+    clickCountRef.current += 1
+
+    if (clickCountRef.current >= 5) {
+      router.push('/admin') // الانتقال الفوري
+      clickCountRef.current = 0
+    }
+
+    // تصفير العداد إذا توقف عن النقر
+    if (timerRef.current) clearTimeout(timerRef.current)
+    timerRef.current = setTimeout(() => {
+      clickCountRef.current = 0
+    }, 1500)
   }
 
   const handleContinue = () => {
     if (!role) return;
-
-    // حفظ الاختيار في الكوكيز ليعمل الحارس (Middleware) الخاص بك بشكل صحيح
     document.cookie = `user_role=${role}; path=/; max-age=31536000; SameSite=Lax`;
-    
-    // حفظ الاختيار في الذاكرة المحلية
     localStorage.setItem('user_role', role);
-
-    // التوجيه لصفحة الإيميل والباسورد مع نقل نوع الحساب بأمان
     router.push(`/auth?role=${role}`)
   }
 
@@ -45,7 +37,6 @@ export default function WelcomePage() {
     <div className="min-h-screen bg-white font-sans text-right p-6 flex flex-col justify-between" dir="rtl">
       
       <div className="pt-10 text-center animate-in fade-in slide-in-from-top-4 duration-500">
-        {/* الشعار مع ميزة النقر السري */}
         <div 
           onClick={handleSecretLogoClick}
           className="w-20 h-20 bg-emerald-600 rounded-[25px] flex items-center justify-center mx-auto mb-6 shadow-lg shadow-emerald-100 cursor-pointer transition-transform active:scale-90 select-none"
@@ -57,7 +48,6 @@ export default function WelcomePage() {
       </div>
 
       <div className="space-y-4 animate-in fade-in slide-in-from-bottom-8 duration-500 delay-150">
-        {/* خيار الزبون */}
         <button 
           onClick={() => setRole('customer')}
           className={`w-full p-6 rounded-[30px] border-2 transition-all flex items-center gap-4 ${role === 'customer' ? 'border-emerald-600 bg-emerald-50 shadow-md' : 'border-gray-100 bg-gray-50 hover:bg-gray-100'}`}
@@ -72,7 +62,6 @@ export default function WelcomePage() {
           {role === 'customer' && <CheckCircle2 className="text-emerald-600 animate-in zoom-in" />}
         </button>
 
-        {/* خيار التاجر */}
         <button 
           onClick={() => setRole('merchant')}
           className={`w-full p-6 rounded-[30px] border-2 transition-all flex items-center gap-4 ${role === 'merchant' ? 'border-emerald-600 bg-emerald-50 shadow-md' : 'border-gray-100 bg-gray-50 hover:bg-gray-100'}`}
