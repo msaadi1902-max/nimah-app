@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react'
 import { createClient } from '@supabase/supabase-js'
 import { useParams, useRouter } from 'next/navigation'
-import { ArrowRight, Star, Clock, Calendar, Store, Plus, Loader2, MessageSquare, ShieldCheck, Heart, Share2 } from 'lucide-react'
+import { ArrowRight, Star, Clock, Calendar, Store, Plus, Loader2, MessageSquare, ShieldCheck, Heart, Share2, Info } from 'lucide-react'
 import { useCart } from '../../context/CartContext'
 
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
@@ -16,12 +16,30 @@ export default function MealDetailsPage() {
   const [reviews, setReviews] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [isFavorite, setIsFavorite] = useState(false)
+  const [user, setUser] = useState<any>(null)
 
   useEffect(() => {
     if (params.id) {
       fetchMealDetails()
+      checkUserAndFavoriteStatus()
     }
   }, [params.id])
+
+  // التحقق مما إذا كان الزبون مسجلاً وما إذا كانت الوجبة في مفضلته
+  const checkUserAndFavoriteStatus = async () => {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (user) {
+      setUser(user)
+      const { data } = await supabase
+        .from('favorites')
+        .select('meal_id')
+        .eq('user_id', user.id)
+        .eq('meal_id', params.id)
+        .single()
+      
+      if (data) setIsFavorite(true)
+    }
+  }
 
   const fetchMealDetails = async () => {
     setLoading(true)
@@ -57,7 +75,30 @@ export default function MealDetailsPage() {
       image: meal.image_url,
       merchant_id: meal.merchant_id 
     })
-    alert('✅ تم إضافة العرض إلى سلة المشتريات!')
+    alert('🛒 تمت إضافة الوجبة إلى سلتك بنجاح!')
+  }
+
+  // دالة الإضافة والإزالة من المفضلة (متصلة بقاعدة البيانات)
+  const handleToggleFavorite = async () => {
+    if (!user) {
+      alert('يرجى تسجيل الدخول كزبون للاحتفاظ بالوجبات في مفضلتك ❤️')
+      router.push('/welcome')
+      return
+    }
+
+    const newFavStatus = !isFavorite
+    setIsFavorite(newFavStatus) // تحديث فوري للواجهة
+
+    try {
+      if (newFavStatus) {
+        await supabase.from('favorites').insert([{ user_id: user.id, meal_id: params.id }])
+      } else {
+        await supabase.from('favorites').delete().eq('user_id', user.id).eq('meal_id', params.id)
+      }
+    } catch (error) {
+      console.error("Error toggling favorite")
+      setIsFavorite(!newFavStatus) // التراجع في حال الفشل
+    }
   }
 
   // حساب الإحصائيات للتقييمات
@@ -67,20 +108,19 @@ export default function MealDetailsPage() {
   const avgService = totalReviews > 0 ? (reviews.reduce((a, b) => a + (b.service_rating || 5), 0) / totalReviews).toFixed(1) : 5
   const avgClean = totalReviews > 0 ? (reviews.reduce((a, b) => a + (b.cleanliness_rating || 5), 0) / totalReviews).toFixed(1) : 5
 
-  // مكون شريط التقييم الصغير
   const RatingBar = ({ label, value }: { label: string, value: number }) => (
     <div className="flex items-center gap-3 text-xs font-black text-gray-600 mb-2">
       <span className="w-16">{label}</span>
-      <div className="flex-1 bg-gray-100 h-2 rounded-full overflow-hidden">
-        <div className="bg-amber-400 h-full rounded-full" style={{ width: `${(value / 5) * 100}%` }}></div>
+      <div className="flex-1 bg-gray-200 h-2 rounded-full overflow-hidden">
+        <div className="bg-amber-400 h-full rounded-full transition-all duration-1000" style={{ width: `${(value / 5) * 100}%` }}></div>
       </div>
-      <span className="w-6 text-left">{value}</span>
+      <span className="w-6 text-left text-amber-600">{value}</span>
     </div>
   )
 
   if (loading) return <div className="min-h-screen bg-gray-50 flex justify-center items-center"><Loader2 className="animate-spin text-emerald-600 w-12 h-12"/></div>
   
-  if (!meal) return <div className="min-h-screen flex justify-center items-center text-gray-500 font-black">العرض غير متوفر أو تم حذفه ❌</div>
+  if (!meal) return <div className="min-h-screen flex justify-center items-center text-gray-500 font-black">عذراً، هذا العرض غير متوفر أو تم حذفه ❌</div>
 
   return (
     <div className="min-h-screen bg-gray-50 pb-32 text-right font-sans" dir="rtl">
@@ -88,102 +128,112 @@ export default function MealDetailsPage() {
       {/* قسم الصورة العلوية مع الأزرار العائمة */}
       <div className="relative h-80 bg-gray-200">
         <img src={meal.image_url} alt={meal.name} className="w-full h-full object-cover" />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent"></div>
+        <div className="absolute inset-0 bg-gradient-to-t from-slate-900/90 via-slate-900/20 to-transparent"></div>
         
         <div className="absolute top-12 left-6 right-6 flex justify-between items-center z-10">
-          <button onClick={() => router.back()} className="bg-white/20 backdrop-blur-md p-3 rounded-2xl text-white active:scale-95 transition-all"><ArrowRight size={22} /></button>
+          <button onClick={() => router.back()} className="bg-white/20 backdrop-blur-md p-3 rounded-2xl text-white active:scale-95 transition-all hover:bg-white/30"><ArrowRight size={22} /></button>
           <div className="flex gap-3">
-            <button className="bg-white/20 backdrop-blur-md p-3 rounded-2xl text-white active:scale-95"><Share2 size={22} /></button>
-            <button onClick={() => setIsFavorite(!isFavorite)} className="bg-white/20 backdrop-blur-md p-3 rounded-2xl text-white active:scale-95">
-              <Heart size={22} className={isFavorite ? "fill-rose-500 text-rose-500" : ""} />
+            <button className="bg-white/20 backdrop-blur-md p-3 rounded-2xl text-white active:scale-95 hover:bg-white/30"><Share2 size={22} /></button>
+            <button onClick={handleToggleFavorite} className="bg-white/90 backdrop-blur-md p-3 rounded-2xl active:scale-90 transition-transform shadow-lg hover:scale-105">
+              <Heart size={22} className={isFavorite ? "fill-rose-500 text-rose-500" : "text-gray-400 hover:text-rose-400"} />
             </button>
           </div>
         </div>
 
-        {/* شارة الخصم */}
-        <div className="absolute bottom-6 right-6 z-10">
-          <span className="bg-emerald-500 text-white px-3 py-1.5 rounded-xl text-xs font-black shadow-lg shadow-emerald-500/30 inline-block mb-2">
-            {meal.category}
+        {/* شارة الخصم واسم الوجبة */}
+        <div className="absolute bottom-8 right-6 z-10">
+          <span className="bg-rose-500 text-white px-3 py-1.5 rounded-xl text-[10px] font-black shadow-lg shadow-rose-500/30 inline-block mb-3 uppercase tracking-wider">
+            وفر {meal.original_price > 0 ? Math.round(((meal.original_price - meal.discounted_price) / meal.original_price) * 100) : 0}%
           </span>
-          <h1 className="text-3xl font-black text-white leading-tight">{meal.name}</h1>
+          <h1 className="text-3xl font-black text-white leading-tight drop-shadow-md">{meal.name}</h1>
         </div>
       </div>
 
-      <div className="px-6 -mt-6 relative z-20 space-y-6">
+      <div className="px-6 -mt-4 relative z-20 space-y-6">
         
         {/* بطاقة السعر والتاجر */}
-        <div className="bg-white p-6 rounded-[35px] shadow-xl shadow-gray-200/40 border border-gray-100 flex justify-between items-center">
+        <div className="bg-white p-6 rounded-[35px] shadow-xl shadow-gray-200/50 border border-gray-100 flex justify-between items-center">
           <div>
-            <p className="text-sm font-bold text-gray-400 mb-1 flex items-center gap-1"><Store size={14} className="text-emerald-600"/> {meal.profiles?.shop_name || 'تاجر معتمد'}</p>
-            <div className="flex items-center gap-2">
+            <p className="text-sm font-bold text-gray-500 mb-1 flex items-center gap-1.5 bg-gray-50 px-2 py-1 rounded-lg w-fit">
+              <Store size={14} className="text-emerald-600"/> {meal.profiles?.shop_name || 'تاجر معتمد'}
+            </p>
+            <div className="flex items-center gap-2 mt-2">
               <Star size={18} className={avgTotal === 'جديد' ? 'text-gray-300' : 'text-amber-400 fill-amber-400'} />
               <span className="font-black text-gray-800 text-lg">{avgTotal} <span className="text-xs text-gray-400">({totalReviews} تقييم)</span></span>
             </div>
           </div>
-          <div className="text-left bg-emerald-50/50 p-4 rounded-3xl border border-emerald-100/50">
-            <p className="text-xs font-bold text-gray-400 line-through mb-1">{meal.original_price} {meal.currency || 'ل.س'}</p>
+          <div className="text-left bg-emerald-50 p-4 rounded-3xl border border-emerald-100">
+            <p className="text-xs font-bold text-gray-400 line-through mb-0.5">{meal.original_price} {meal.currency || 'ل.س'}</p>
             <p className="text-3xl font-black text-emerald-600 leading-none">{meal.discounted_price} <span className="text-sm">{meal.currency || 'ل.س'}</span></p>
           </div>
         </div>
 
-        {/* معلومات الاستلام */}
+        {/* معلومات الاستلام (تم تحسين تصميمها) */}
         <div className="bg-white p-6 rounded-[35px] shadow-sm border border-gray-100 grid grid-cols-2 gap-4">
-          <div className="flex items-start gap-3">
-            <div className="bg-orange-50 p-3 rounded-2xl text-orange-500"><Calendar size={22}/></div>
+          <div className="flex flex-col items-start gap-2 bg-orange-50/50 p-4 rounded-3xl border border-orange-100/50">
+            <div className="bg-orange-100 p-2.5 rounded-2xl text-orange-600"><Calendar size={20}/></div>
             <div>
-              <p className="text-[10px] text-gray-400 font-bold mb-1">صالح من - إلى</p>
-              <p className="text-xs font-black text-gray-800 leading-tight">{meal.start_date || 'غير محدد'}<br/>{meal.end_date || 'غير محدد'}</p>
+              <p className="text-[10px] text-gray-500 font-bold mb-1">صلاحية العرض</p>
+              <p className="text-xs font-black text-gray-800 leading-snug">{meal.start_date || 'غير محدد'} <br/> <span className="text-gray-400">حتى</span> {meal.end_date || 'غير محدد'}</p>
             </div>
           </div>
-          <div className="flex items-start gap-3">
-            <div className="bg-blue-50 p-3 rounded-2xl text-blue-500"><Clock size={22}/></div>
+          <div className="flex flex-col items-start gap-2 bg-blue-50/50 p-4 rounded-3xl border border-blue-100/50">
+            <div className="bg-blue-100 p-2.5 rounded-2xl text-blue-600"><Clock size={20}/></div>
             <div>
-              <p className="text-[10px] text-gray-400 font-bold mb-1">وقت الاستلام</p>
-              <p className="text-xs font-black text-gray-800 leading-tight">{meal.pickup_time || 'غير محدد'}</p>
+              <p className="text-[10px] text-gray-500 font-bold mb-1">وقت الاستلام</p>
+              <p className="text-xs font-black text-gray-800 leading-snug">{meal.pickup_time || 'غير محدد'}</p>
             </div>
           </div>
         </div>
 
-        {/* ================= قسم التقييمات المفصلة (الميزة الجديدة) ================= */}
-        <div className="bg-white p-6 rounded-[35px] shadow-sm border border-gray-100">
-          <h3 className="font-black text-gray-900 mb-6 flex items-center gap-2"><ShieldCheck className="text-emerald-500"/> تقييمات الزبائن وتجاربهم</h3>
+        {/* وصف الوجبة (إضافة مفيدة إذا كان التاجر قد كتب وصفاً) */}
+        {meal.description && (
+          <div className="bg-white p-6 rounded-[35px] shadow-sm border border-gray-100">
+            <h3 className="font-black text-gray-900 mb-3 flex items-center gap-2"><Info size={18} className="text-emerald-500"/> تفاصيل العرض</h3>
+            <p className="text-sm text-gray-600 font-bold leading-relaxed">{meal.description}</p>
+          </div>
+        )}
+
+        {/* ================= قسم التقييمات المفصلة ================= */}
+        <div className="bg-white p-6 rounded-[35px] shadow-sm border border-gray-100 mb-10">
+          <h3 className="font-black text-gray-900 mb-6 flex items-center gap-2"><ShieldCheck className="text-emerald-500"/> تجارب الزبائن</h3>
           
           {totalReviews === 0 ? (
-            <div className="text-center py-6">
-              <MessageSquare size={36} className="mx-auto text-gray-200 mb-3" />
-              <p className="text-gray-400 font-bold text-sm">كن أول من يجرب هذا العرض ويقيمه! ✨</p>
+            <div className="text-center py-8 bg-gray-50 rounded-3xl border border-dashed border-gray-200">
+              <MessageSquare size={36} className="mx-auto text-gray-300 mb-3" />
+              <p className="text-gray-500 font-bold text-sm">كن أول من يجرب هذا العرض الرائع ويقيمه! ✨</p>
             </div>
           ) : (
             <>
               {/* ملخص العوامل الثلاثة */}
-              <div className="mb-8 bg-gray-50 p-5 rounded-3xl border border-gray-100">
+              <div className="mb-8 bg-gray-50 p-6 rounded-3xl border border-gray-100">
                 <RatingBar label="الجودة والطعم" value={Number(avgQuality)} />
                 <RatingBar label="جودة الخدمة" value={Number(avgService)} />
                 <RatingBar label="النظافة" value={Number(avgClean)} />
               </div>
 
               {/* قائمة التعليقات */}
-              <div className="space-y-4">
+              <div className="space-y-5">
                 {reviews.map((rev, index) => (
-                  <div key={index} className="border-b border-gray-50 pb-4 last:border-0 last:pb-0">
-                    <div className="flex justify-between items-start mb-2">
-                      <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 bg-emerald-100 text-emerald-700 rounded-full flex items-center justify-center font-black text-xs">
+                  <div key={index} className="border-b border-gray-100 pb-5 last:border-0 last:pb-0">
+                    <div className="flex justify-between items-start mb-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-emerald-100 text-emerald-700 rounded-full flex items-center justify-center font-black text-sm border border-emerald-200">
                           {rev.profiles?.full_name?.charAt(0) || 'ز'}
                         </div>
                         <div>
                           <p className="text-xs font-black text-gray-900">{rev.profiles?.full_name || 'زبون لنِعمة'}</p>
-                          <p className="text-[9px] text-gray-400 font-bold">{new Date(rev.created_at).toLocaleDateString('ar-EG')}</p>
+                          <p className="text-[10px] text-gray-400 font-bold mt-0.5">{new Date(rev.created_at).toLocaleDateString('ar-EG')}</p>
                         </div>
                       </div>
-                      <div className="flex items-center gap-1 bg-amber-50 px-2 py-1 rounded-lg">
-                        <Star size={10} className="text-amber-500 fill-amber-500"/>
-                        <span className="text-[10px] font-black text-amber-700">{rev.rating?.toFixed(1) || 5}</span>
+                      <div className="flex items-center gap-1 bg-amber-50 px-2.5 py-1 rounded-xl border border-amber-100">
+                        <Star size={12} className="text-amber-500 fill-amber-500"/>
+                        <span className="text-xs font-black text-amber-700">{rev.rating?.toFixed(1) || 5}</span>
                       </div>
                     </div>
-                    {rev.review_comment && (
-                      <p className="text-xs font-bold text-gray-600 bg-gray-50 p-3 rounded-2xl leading-relaxed">
-                        "{rev.review_comment}"
+                    {rev.comment && (
+                      <p className="text-xs font-bold text-gray-600 bg-gray-50/80 p-4 rounded-2xl leading-relaxed mt-2 border border-gray-100">
+                        "{rev.comment}"
                       </p>
                     )}
                   </div>
@@ -196,18 +246,22 @@ export default function MealDetailsPage() {
       </div>
 
       {/* الشريط السفلي العائم (إضافة للسلة) */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-xl p-6 rounded-t-[40px] shadow-[0_-10px_40px_rgba(0,0,0,0.05)] border-t border-gray-100 z-50">
+      <div className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-2xl p-6 rounded-t-[40px] shadow-[0_-20px_40px_rgba(0,0,0,0.08)] border-t border-gray-100 z-50">
         <div className="flex items-center gap-4 max-w-md mx-auto">
-          <div className="bg-gray-50 p-3.5 rounded-2xl text-center min-w-[70px] border border-gray-200">
-            <span className="block text-[9px] font-bold text-gray-500 mb-0.5">الكمية</span>
-            <span className="font-black text-gray-900 leading-none text-lg">{meal.quantity}</span>
+          <div className="bg-gray-50 p-3.5 rounded-[20px] text-center min-w-[75px] border border-gray-200">
+            <span className="block text-[9px] font-bold text-gray-500 mb-0.5">الكمية المتاحة</span>
+            <span className={`font-black leading-none text-xl ${meal.quantity > 0 ? 'text-emerald-600' : 'text-rose-500'}`}>{meal.quantity}</span>
           </div>
           <button 
             onClick={handleAddToCart}
             disabled={meal.quantity <= 0}
-            className="flex-1 bg-gray-900 disabled:bg-gray-300 text-white py-4 rounded-2xl font-black text-sm flex items-center justify-center gap-2 active:scale-95 transition-all shadow-xl shadow-gray-900/20"
+            className="flex-1 bg-gray-900 disabled:bg-gray-200 disabled:text-gray-400 text-white py-4.5 rounded-[20px] font-black text-sm flex items-center justify-center gap-2 active:scale-95 transition-all shadow-xl shadow-gray-900/20 hover:bg-black h-16"
           >
-            <Plus size={18} /> {meal.quantity > 0 ? 'أضف إلى سلة المشتريات' : 'نفدت الكمية'}
+            {meal.quantity > 0 ? (
+              <><ShoppingBag size={20} /> أضف إلى سلة المشتريات</>
+            ) : (
+              'نفدت الكمية الحالية 😔'
+            )}
           </button>
         </div>
       </div>
