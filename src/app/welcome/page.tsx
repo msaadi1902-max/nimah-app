@@ -1,11 +1,32 @@
 'use client'
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { User, Store, ArrowLeft, CheckCircle2 } from 'lucide-react'
 
 export default function WelcomePage() {
   const router = useRouter()
   const [role, setRole] = useState<'customer' | 'merchant' | null>(null)
+  
+  // حالة مراقبة النقر السري
+  const [secretClicks, setSecretClicks] = useState(0)
+
+  // تأثير برمجي لمراقبة تتابع النقرات (إذا ضغط 5 مرات بسرعة يفتح الإدارة)
+  useEffect(() => {
+    if (secretClicks >= 5) {
+      router.push('/admin') // فتح البوابة السرية
+      setSecretClicks(0) // تصفير العداد
+    }
+    
+    // إذا نقر ولكن لم يكمل 5 نقرات خلال ثانية ونصف، نصفر العداد
+    if (secretClicks > 0) {
+      const timer = setTimeout(() => setSecretClicks(0), 1500)
+      return () => clearTimeout(timer)
+    }
+  }, [secretClicks, router])
+
+  const handleSecretLogoClick = () => {
+    setSecretClicks(prev => prev + 1)
+  }
 
   const handleContinue = () => {
     if (!role) return;
@@ -24,7 +45,11 @@ export default function WelcomePage() {
     <div className="min-h-screen bg-white font-sans text-right p-6 flex flex-col justify-between" dir="rtl">
       
       <div className="pt-10 text-center animate-in fade-in slide-in-from-top-4 duration-500">
-        <div className="w-20 h-20 bg-emerald-600 rounded-[25px] flex items-center justify-center mx-auto mb-6 shadow-lg shadow-emerald-100">
+        {/* الشعار مع ميزة النقر السري */}
+        <div 
+          onClick={handleSecretLogoClick}
+          className="w-20 h-20 bg-emerald-600 rounded-[25px] flex items-center justify-center mx-auto mb-6 shadow-lg shadow-emerald-100 cursor-pointer transition-transform active:scale-90 select-none"
+        >
           <span className="text-white text-3xl font-black italic">ن</span>
         </div>
         <h1 className="text-3xl font-black text-gray-900 mb-2">مرحباً بك في نِعمة</h1>
