@@ -2,8 +2,13 @@
 import React, { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@supabase/supabase-js'
-import { ArrowRight, Ticket, MapPin, Clock, Loader2, QrCode, CheckCircle2, Star, MessageSquare, ExternalLink } from 'lucide-react'
+import { 
+  ArrowRight, Ticket, MapPin, Clock, Loader2, 
+  QrCode, CheckCircle2, Star, MessageSquare, 
+  ExternalLink, Store 
+} from 'lucide-react'
 import BottomNav from '@/components/BottomNav'
+import QRCode from "react-qr-code";
 
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
 
@@ -31,11 +36,13 @@ export default function TicketsPage() {
         return
       }
 
-      // جلب الطلبات (نعتمد على user_id أو customer_email)
       const { data, error } = await supabase
         .from('orders')
-        .select('*')
-        .eq('user_id', user.id) // يفضل استخدام user_id إذا كان موجوداً
+        .select(`
+          *,
+          meals:meal_id (name, image_url, category)
+        `)
+        .eq('user_id', user.id)
         .order('created_at', { ascending: false })
 
       if (data) setOrders(data)
@@ -91,19 +98,18 @@ export default function TicketsPage() {
             <ArrowRight size={20} />
           </button>
           <h1 className="text-xl font-black flex items-center gap-2">
-            <Ticket size={24} className="text-emerald-200" /> تذاكر الحجز 🎫
+            <Ticket size={24} className="text-emerald-200" /> تذاكري الرقمية 🎫
           </h1>
           <div className="w-10"></div>
         </div>
         <p className="text-emerald-100 text-[10px] font-black text-center relative z-10 uppercase tracking-widest">أبرز كود التذكرة للتاجر عند الاستلام</p>
       </div>
 
-      {/* قائمة التذاكر */}
-      <div className="px-6 space-y-6">
+      <div className="px-6 space-y-8">
         {loading ? (
           <div className="flex flex-col items-center py-20 text-emerald-600">
             <Loader2 className="animate-spin w-12 h-12 mb-4" />
-            <span className="font-black text-sm">جاري جلب تذاكرك...</span>
+            <span className="font-black text-sm text-gray-400">جاري جلب تذاكرك...</span>
           </div>
         ) : orders.length === 0 ? (
           <div className="text-center bg-white p-12 rounded-[40px] shadow-sm border border-gray-100 mt-10 animate-in fade-in zoom-in duration-500">
@@ -116,85 +122,89 @@ export default function TicketsPage() {
           </div>
         ) : (
           orders.map((order) => (
-            <div key={order.id} className="animate-in slide-in-from-bottom-5 duration-500">
-              <div className="bg-white rounded-[35px] shadow-md overflow-hidden border border-gray-100 relative group transition-all hover:shadow-xl">
-                
-                <div className={`${order.status === 'completed' ? 'bg-gray-100' : 'bg-emerald-50'} p-6 border-b-2 border-dashed border-gray-200 relative transition-colors`}>
-                  <div className="absolute -bottom-3 -left-3 w-6 h-6 bg-gray-50 rounded-full border border-gray-100"></div>
-                  <div className="absolute -bottom-3 -right-3 w-6 h-6 bg-gray-50 rounded-full border border-gray-100"></div>
-                  
-                  <div className="flex justify-between items-start mb-4">
-                    <div>
-                      <h3 className={`font-black text-lg leading-tight ${order.status === 'completed' ? 'text-gray-600' : 'text-gray-900'}`}>
-                        {order.meal_name || 'وجبة إنقاذ'}
-                      </h3>
-                      <div className="flex items-center gap-1.5 mt-2">
-                        <CheckCircle2 size={14} className={order.status === 'completed' ? 'text-gray-400' : 'text-emerald-500'} />
-                        <span className={`text-[10px] font-black ${order.status === 'completed' ? 'text-gray-500' : 'text-emerald-600'}`}>
-                          {order.status === 'completed' ? 'تم الاستلام بنجاح' : 'جاهز للاستلام'}
-                        </span>
-                      </div>
-                    </div>
-                    
-                    {order.status !== 'completed' && (
-                      <div className="bg-gray-900 text-white p-2.5 rounded-2xl shadow-lg">
-                        <QrCode size={24} />
-                      </div>
+            <div key={order.id} className="relative animate-in slide-in-from-bottom-5 duration-500">
+              {/* جسم التذكرة العلوي */}
+              <div className="bg-white rounded-t-[35px] shadow-sm border border-gray-100 border-b-0 overflow-hidden">
+                <div className={`${order.status === 'used' ? 'bg-gray-50' : 'bg-emerald-50/50'} p-5 flex items-center gap-4 border-b border-dashed border-gray-200 relative`}>
+                  <div className="w-14 h-14 bg-white rounded-2xl flex items-center justify-center text-emerald-600 shadow-sm shrink-0 overflow-hidden border border-emerald-100">
+                    {order.meals?.image_url ? (
+                      <img src={order.meals.image_url} className="w-full h-full object-cover" />
+                    ) : (
+                      <Store size={24} />
                     )}
                   </div>
-                  
-                  <div className="space-y-2 mt-4">
-                    <div className="flex items-center gap-2 text-gray-500 font-bold text-[10px]">
-                      <Clock size={14} className="text-gray-400" />
-                      <span>وقت الاستلام: <span className="text-gray-900">حسب موعد العرض</span></span>
-                    </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className={`font-black text-sm truncate ${order.status === 'used' ? 'text-gray-400' : 'text-gray-900'}`}>
+                      {order.meals?.name || 'وجبة إنقاذ'}
+                    </h3>
+                    <p className="text-[10px] font-bold text-gray-400 flex items-center gap-1 mt-1">
+                      <Clock size={12} /> {new Date(order.created_at).toLocaleDateString('ar-EG')}
+                    </p>
+                  </div>
+                  <div className={`px-3 py-1.5 rounded-full text-[9px] font-black ${
+                    order.status === 'active' ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-200 text-gray-500'
+                  }`}>
+                    {order.status === 'active' ? 'جاهزة' : 'مستخدمة'}
                   </div>
                 </div>
-                
-                <div className="p-5 bg-white flex justify-between items-center px-8">
-                  <div className="text-right">
-                    <p className="text-[9px] font-black text-gray-400 uppercase tracking-tighter mb-1">كود الحجز الفريد</p>
-                    <span className={`text-lg font-mono font-black tracking-[5px] ${order.status === 'completed' ? 'text-gray-400 line-through' : 'text-gray-900'}`}>
-                      {order.ticket_number || `#${String(order.id).substring(0, 5).toUpperCase()}`}
-                    </span>
-                  </div>
-                  
-                  <div className="text-left flex flex-col items-end gap-2">
-                    {/* زر الدخول لتفاصيل التذكرة إذا لم يتم الاستلام */}
-                    {order.status !== 'completed' && (
-                      <button 
-                        onClick={() => router.push(`/my-ticket?order_no=${order.ticket_number || order.id}`)}
-                        className="bg-emerald-100 text-emerald-700 px-4 py-2 rounded-xl text-xs font-black flex items-center gap-1.5 hover:bg-emerald-200 transition-colors shadow-sm"
-                      >
-                        عرض التذكرة <ExternalLink size={14} />
-                      </button>
-                    )}
 
-                    {order.status === 'completed' && !order.is_reviewed && (
-                      <button onClick={() => openReviewModal(order)} className="bg-amber-100 text-amber-700 px-4 py-2 rounded-xl text-xs font-black flex items-center gap-1.5 hover:bg-amber-200 transition-colors shadow-sm">
-                        <Star size={14} className="fill-amber-500 text-amber-500" /> قيّم تجربتك
-                      </button>
-                    )}
-
-                    {order.is_reviewed && (
-                      <span className="text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-lg text-[10px] font-black flex items-center gap-1 border border-emerald-100">
-                        <Star size={12} className="fill-emerald-500" /> تم التقييم
-                      </span>
-                    )}
-                  </div>
+                <div className="p-6 flex flex-col items-center bg-white">
+                  {order.status === 'active' ? (
+                    <>
+                      <div className="bg-white p-3 rounded-2xl shadow-md border border-gray-100 mb-4 transition-transform hover:scale-105">
+                        <QRCode value={order.ticket_code} size={130} />
+                      </div>
+                      <p className="font-mono font-black text-xl text-gray-800 tracking-[0.3em] bg-gray-50 px-4 py-1 rounded-lg">
+                        {order.ticket_code}
+                      </p>
+                    </>
+                  ) : (
+                    <div className="py-4 text-center">
+                      <CheckCircle2 size={48} className="text-gray-300 mx-auto mb-2" />
+                      <p className="text-sm font-black text-gray-400 uppercase tracking-widest">تمت عملية الاستلام</p>
+                    </div>
+                  )}
                 </div>
+              </div>
+
+              {/* تأثير القص (Ticket Cut) */}
+              <div className="relative h-6 bg-white border-x border-gray-100 flex items-center justify-between overflow-hidden">
+                 <div className="w-6 h-6 bg-gray-50 rounded-full -ml-3 border border-gray-100 shadow-inner"></div>
+                 <div className="flex-1 border-t-2 border-dashed border-gray-200 mx-2"></div>
+                 <div className="w-6 h-6 bg-gray-50 rounded-full -mr-3 border border-gray-100 shadow-inner"></div>
+              </div>
+
+              {/* جسم التذكرة السفلي */}
+              <div className="bg-white p-5 rounded-b-[35px] border border-gray-100 border-t-0 flex flex-col gap-3 shadow-sm">
+                {order.status === 'active' ? (
+                  <p className="text-[10px] font-bold text-emerald-600 bg-emerald-50 py-2.5 rounded-xl text-center">
+                    أظهر هذا الكود للموظف عند الاستلام 🍱
+                  </p>
+                ) : (
+                  <div className="flex flex-col gap-2">
+                    {!order.is_reviewed ? (
+                      <button onClick={() => openReviewModal(order)} className="w-full bg-amber-500 hover:bg-amber-600 text-white py-3 rounded-xl text-xs font-black flex items-center justify-center gap-2 transition-all shadow-lg shadow-amber-100">
+                        <Star size={14} className="fill-white" /> قيّم الوجبة واكسب نقاط
+                      </button>
+                    ) : (
+                      <div className="text-center py-2 text-[10px] font-black text-emerald-600 bg-emerald-50 rounded-xl flex items-center justify-center gap-2">
+                         <Star size={12} className="fill-emerald-600" /> تم التقييم بنجاح
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           ))
         )}
       </div>
 
-      {/* نافذة التقييم المنبثقة (Modal) - محتفظ بها بالكامل */}
+      {/* نافذة التقييم المنبثقة */}
       {reviewModalOpen && (
-        <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-6 animate-in fade-in duration-300">
-          <div className="bg-white rounded-[40px] p-8 w-full max-w-sm shadow-2xl relative animate-in zoom-in-95 duration-300 border border-gray-100">
+        <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-6 animate-in fade-in">
+          <div className="bg-white rounded-[40px] p-8 w-full max-w-sm shadow-2xl relative animate-in zoom-in-95">
             <h2 className="text-2xl font-black text-gray-900 mb-2 text-center">كيف كانت الوجبة؟ 😋</h2>
-            <p className="text-xs text-gray-500 text-center font-bold mb-8 leading-relaxed">شارك رأيك لمساعدة الآخرين وتشجيع المتجر على تقليل الهدر.</p>
+            <p className="text-xs text-gray-500 text-center font-bold mb-8">رأيك يهمنا لتحسين جودة الطعام</p>
             
             <div className="flex justify-center gap-3 mb-8 cursor-pointer" dir="ltr">
               {[1, 2, 3, 4, 5].map((star) => (
@@ -202,32 +212,28 @@ export default function TicketsPage() {
                   key={star} 
                   size={42} 
                   onClick={() => setRating(star)}
-                  className={`transition-all duration-300 hover:scale-110 active:scale-90 ${star <= rating ? 'text-amber-400 fill-amber-400 drop-shadow-md' : 'text-gray-100 fill-gray-100 hover:text-amber-200'}`} 
+                  className={`transition-all ${star <= rating ? 'text-amber-400 fill-amber-400' : 'text-gray-100 fill-gray-100'}`} 
                 />
               ))}
             </div>
 
-            <div className="mb-8 relative group">
-              <MessageSquare size={18} className="absolute top-4 right-4 text-gray-300 group-focus-within:text-emerald-500 transition-colors" />
-              <textarea 
-                placeholder="أضف تعليقاً (اختياري)..."
-                value={comment}
-                onChange={(e) => setComment(e.target.value)}
-                className="w-full bg-gray-50 border-2 border-gray-100 rounded-3xl p-4 pr-12 text-sm font-bold outline-none focus:border-emerald-500 resize-none h-28 transition-colors"
-              ></textarea>
-            </div>
+            <textarea 
+              placeholder="أضف تعليقاً..."
+              value={comment}
+              onChange={(e) => setComment(e.target.value)}
+              className="w-full bg-gray-50 border border-gray-100 rounded-3xl p-4 text-sm font-bold outline-none focus:border-emerald-500 resize-none h-28 mb-6"
+            ></textarea>
 
             <div className="flex gap-3">
-              <button onClick={() => setReviewModalOpen(false)} className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-600 py-4 rounded-2xl font-black text-sm transition-colors">
-                إلغاء
-              </button>
-              <button onClick={submitReview} disabled={submittingReview} className="flex-[2] bg-emerald-600 hover:bg-emerald-700 text-white py-4 rounded-2xl font-black text-sm flex items-center justify-center gap-2 disabled:opacity-50 shadow-xl shadow-emerald-200 transition-all active:scale-95">
-                {submittingReview ? <Loader2 className="animate-spin" /> : 'إرسال التقييم ⭐'}
+              <button onClick={() => setReviewModalOpen(false)} className="flex-1 bg-gray-100 text-gray-600 py-4 rounded-2xl font-black text-sm">إلغاء</button>
+              <button onClick={submitReview} disabled={submittingReview} className="flex-[2] bg-emerald-600 text-white py-4 rounded-2xl font-black text-sm flex items-center justify-center gap-2 shadow-xl shadow-emerald-200">
+                {submittingReview ? <Loader2 className="animate-spin" size={18} /> : 'إرسال التقييم'}
               </button>
             </div>
           </div>
         </div>
       )}
+
       <BottomNav activeTab="tickets" />
     </div>
   )
