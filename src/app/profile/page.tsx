@@ -6,7 +6,8 @@ import {
   UserCircle, Wallet, CreditCard, Ticket, Bell, Gift, 
   Store, Info, Share2, LogOut, ChevronLeft, Heart,
   Landmark, ShieldCheck, Loader2, Sparkles, Settings,
-  Leaf, TrendingDown, PiggyBank, Headphones, X, CheckCircle
+  Leaf, TrendingDown, PiggyBank, Headphones, X, CheckCircle,
+  History, ArrowRightLeft, BellRing
 } from 'lucide-react'
 import BottomNav from '@/components/BottomNav'
 
@@ -24,16 +25,16 @@ export default function AdvancedProfilePage() {
     co2Saved: 0
   })
 
-  // === حالات النوافذ المنبثقة (الميزات الجديدة) ===
+  // === حالات النوافذ المنبثقة ===
   const [showSettingsModal, setShowSettingsModal] = useState(false)
   const [showSupportModal, setShowSupportModal] = useState(false)
   
-  // حالات نموذج الإعدادات
+  // === حالات نموذج الإعدادات ===
   const [editName, setEditName] = useState('')
   const [editPassword, setEditPassword] = useState('')
+  const [notificationsEnabled, setNotificationsEnabled] = useState(true)
   const [updatingSettings, setUpdatingSettings] = useState(false)
 
-  // حالات نموذج الدعم الفني
   const [supportMessage, setSupportMessage] = useState('')
   const [sendingSupport, setSendingSupport] = useState(false)
 
@@ -53,7 +54,7 @@ export default function AdvancedProfilePage() {
       if (profileData) {
         setProfile(profileData)
         setUserRole(profileData.role)
-        setEditName(profileData.full_name || '') // تعبئة الاسم الحالي في نموذج الإعدادات
+        setEditName(profileData.full_name || '') 
 
         if (profileData.role !== 'merchant') {
           const { data: orders } = await supabase
@@ -93,7 +94,6 @@ export default function AdvancedProfilePage() {
     }
   }
 
-  // === دوال النوافذ المنبثقة (الميزات الجديدة) ===
   const handleUpdateSettings = async (e: React.FormEvent) => {
     e.preventDefault()
     setUpdatingSettings(true)
@@ -101,21 +101,19 @@ export default function AdvancedProfilePage() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error("مستخدم غير مسجل")
 
-      // 1. تحديث الاسم في جدول profiles
       if (editName !== profile?.full_name) {
         await supabase.from('profiles').update({ full_name: editName }).eq('id', user.id)
       }
 
-      // 2. تحديث كلمة المرور في قسم المصادقة (إذا كتب شيئاً جديداً)
       if (editPassword.trim().length > 0) {
         const { error } = await supabase.auth.updateUser({ password: editPassword })
         if (error) throw error
       }
 
-      alert('✅ تم تحديث بياناتك بنجاح!')
+      alert('✅ تم تحديث إعداداتك بنجاح!')
       setShowSettingsModal(false)
-      fetchUserData() // تحديث البيانات المعروضة
-      setEditPassword('') // تصفير حقل كلمة المرور
+      fetchUserData() 
+      setEditPassword('') 
     } catch (error: any) {
       alert('❌ حدث خطأ: ' + error.message)
     } finally {
@@ -128,7 +126,6 @@ export default function AdvancedProfilePage() {
     if (!supportMessage.trim()) return
     setSendingSupport(true)
     
-    // محاكاة إرسال تذكرة دعم (يمكن ربطها بجدول support_tickets لاحقاً)
     setTimeout(() => {
       alert('✅ تم إرسال رسالتك لفريق الدعم بنجاح. سنرد عليك قريباً!')
       setSupportMessage('')
@@ -137,28 +134,28 @@ export default function AdvancedProfilePage() {
     }, 1500)
   }
 
-  // بناء الأقسام ديناميكياً 
   const buildSections = () => {
     const sections = []
 
     sections.push({
-      title: "تأثيرك المجتمعي",
+      title: "المحفظة والعمليات",
       items: [
-        { name: 'أثري الإيجابي والبيئي ✨', icon: Sparkles, color: 'text-emerald-600', path: '/impact' },
+        { name: 'المحفظة وسجل الشحن', icon: ArrowRightLeft, color: 'text-emerald-500', path: '/wallet' },
       ]
     })
 
     if (userRole !== 'merchant') {
       sections.push({
-        title: "حجوزاتي",
+        title: "طلباتي وحجوزاتي",
         items: [
-          { name: 'تذاكر الحجز النشطة 🎟️', icon: Ticket, color: 'text-emerald-600', path: '/tickets' },
+          { name: 'تذاكر الحجز النشطة 🎟️', icon: Ticket, color: 'text-rose-500', path: '/tickets' },
+          { name: 'سجل المشتريات السابق', icon: History, color: 'text-blue-500', path: '/order-history' },
         ]
       })
       sections.push({
         title: "المكافآت والخصومات",
         items: [
-          { name: 'قسائم الخصم والمكافآت', icon: Gift, color: 'text-orange-500', path: '/vouchers' },
+          { name: 'قسائم الخصم والمكافآت', icon: Gift, color: 'text-amber-500', path: '/vouchers' },
           { name: 'دعوة صديق (اربح 5€)', icon: Share2, color: 'text-purple-600', path: '/referral' },
         ]
       })
@@ -174,11 +171,10 @@ export default function AdvancedProfilePage() {
       })
     }
 
-    // تم تحديث هذا القسم ليفتح النوافذ المنبثقة بدلاً من التوجيه لروابط فارغة
     sections.push({
       title: "الإعدادات والدعم",
       items: [
-        { name: 'إعدادات الحساب', icon: Settings, color: 'text-gray-600', action: () => setShowSettingsModal(true) },
+        { name: 'إعدادات الحساب والأمان', icon: Settings, color: 'text-gray-700', action: () => setShowSettingsModal(true) },
         { name: 'الدعم الفني والمساعدة', icon: Headphones, color: 'text-sky-500', action: () => setShowSupportModal(true) },
         { name: 'عن نِعمة وتوزيع الأرباح', icon: Info, color: 'text-indigo-500', path: '/about-us' },
         { name: 'سياسة الخصوصية', icon: Heart, color: 'text-rose-400', path: '/legal' },
@@ -187,11 +183,6 @@ export default function AdvancedProfilePage() {
 
     return sections
   }
-
-  const paymentMethods = [
-    { name: 'بطاقات بنكية', icon: CreditCard, color: 'text-blue-600', path: '/payment-methods', subtitle: 'Visa / MasterCard' },
-    { name: 'شام كاش / تحويل محلي', icon: Landmark, color: 'text-emerald-600', path: '/payment-methods', subtitle: 'متوفر في سوريا' },
-  ]
 
   if (loading) return (
     <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center text-emerald-600 font-black italic">
@@ -206,9 +197,9 @@ export default function AdvancedProfilePage() {
       {/* هيدر البروفايل */}
       <div className="relative h-72 bg-emerald-600 text-white rounded-b-[60px] shadow-2xl flex flex-col items-center justify-center p-6 overflow-hidden mb-4">
         <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-32 -mt-32 blur-3xl"></div>
+        <div className="absolute bottom-0 left-0 w-40 h-40 bg-emerald-400/20 rounded-full -ml-20 -mb-20 blur-2xl"></div>
+        
         <div className="relative z-10 text-center flex flex-col items-center">
-          
-          {/* زر تغيير الصورة (تصميم مرئي جاهز للربط المستقبلي بالتخزين) */}
           <div className="relative group cursor-pointer" onClick={() => setShowSettingsModal(true)}>
             <div className="w-24 h-24 rounded-[35px] bg-white/20 mb-4 border-4 border-white/50 flex items-center justify-center shadow-2xl backdrop-blur-md overflow-hidden">
                 <div className="w-full h-full bg-emerald-50 flex items-center justify-center text-emerald-600 text-4xl font-black shadow-inner">
@@ -216,12 +207,14 @@ export default function AdvancedProfilePage() {
                 </div>
             </div>
             <div className="absolute inset-0 bg-black/40 rounded-[35px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-               <Settings size={24} className="text-white" />
+                <Settings size={24} className="text-white" />
             </div>
           </div>
 
           <h1 className="text-2xl font-black">{profile?.full_name || profile?.email?.split('@')[0]}</h1>
-          <div className="flex items-center gap-2 mt-2 bg-black/20 px-4 py-1.5 rounded-full backdrop-blur-sm border border-white/10">
+          <p className="text-emerald-100 text-xs font-bold mt-1 opacity-80">{profile?.email}</p>
+          
+          <div className="flex items-center gap-2 mt-3 bg-black/20 px-4 py-1.5 rounded-full backdrop-blur-sm border border-white/10">
             <ShieldCheck size={14} className="text-emerald-300" />
             <span className="text-[10px] font-black uppercase tracking-wider">
               {userRole === 'merchant' ? 'تاجر معتمد' : userRole === 'super_admin' ? 'مدير عام 👑' : 'زبون موثق'}
@@ -232,19 +225,25 @@ export default function AdvancedProfilePage() {
 
       <div className="px-6 space-y-6 relative z-20">
         
-        {/* بطاقة المحفظة (الرصيد) */}
-        <div className="bg-white p-6 rounded-[35px] shadow-xl border border-gray-100 flex items-center justify-between group">
-          <div className="flex items-center gap-4">
-            <div className="bg-emerald-100 p-4 rounded-2xl text-emerald-600 transition-transform group-hover:scale-110">
-              <Wallet size={28} />
+        {/* 💳 بطاقة المحفظة الرقمية (تصميم Tier-1) */}
+        <div className="bg-gradient-to-br from-emerald-800 to-slate-900 p-6 rounded-[35px] shadow-2xl relative overflow-hidden text-white flex items-center justify-between group">
+          {/* تأثيرات لمعان البطاقة */}
+          <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/20 rounded-full blur-2xl -mr-10 -mt-10"></div>
+          <div className="absolute bottom-0 left-0 w-24 h-24 bg-blue-500/20 rounded-full blur-2xl -ml-10 -mb-10"></div>
+          
+          <div className="relative z-10 flex items-center gap-4">
+            <div className="bg-white/10 backdrop-blur-md p-4 rounded-2xl border border-white/10 shadow-inner group-hover:scale-105 transition-transform">
+              <Wallet size={28} className="text-emerald-300" />
             </div>
             <div>
-              <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">الرصيد المتاح</p>
-              <h2 className="text-3xl font-black text-gray-900">{profile?.wallet_balance?.toFixed(2) || '0.00'} <span className="text-sm font-bold text-emerald-600">€</span></h2>
+              <p className="text-[10px] font-black text-emerald-200/70 uppercase tracking-widest mb-1 flex items-center gap-1">
+                رصيد المحفظة <CheckCircle size={10} className="text-emerald-400" />
+              </p>
+              <h2 className="text-3xl font-black tracking-tight">{profile?.wallet_balance?.toFixed(2) || '0.00'} <span className="text-sm font-bold text-emerald-400">{profile?.currency || '€'}</span></h2>
             </div>
           </div>
-          <button onClick={() => router.push('/payment-methods')} className="bg-gray-900 text-white px-5 py-3 rounded-2xl text-xs font-black shadow-lg active:scale-95 transition-all">
-            شحن <CreditCard size={14} className="inline mr-1" />
+          <button onClick={() => router.push('/wallet')} className="relative z-10 bg-white text-emerald-900 px-5 py-3.5 rounded-2xl text-xs font-black shadow-[0_0_20px_rgba(255,255,255,0.2)] active:scale-95 transition-all flex items-center gap-2 hover:bg-emerald-50">
+            شحن <CreditCard size={14} />
           </button>
         </div>
 
@@ -255,7 +254,7 @@ export default function AdvancedProfilePage() {
               <Leaf size={14} className="text-emerald-500" /> أثرك الإيجابي المباشر
             </h2>
             <div className="grid grid-cols-2 gap-4">
-              <div className="bg-white p-5 rounded-[30px] border border-gray-100 shadow-sm text-center">
+              <div className="bg-white p-5 rounded-[30px] border border-gray-100 shadow-sm text-center hover:shadow-md transition-shadow">
                 <div className="w-10 h-10 bg-orange-50 text-orange-500 rounded-full flex items-center justify-center mx-auto mb-3">
                   <TrendingDown size={20} />
                 </div>
@@ -263,7 +262,7 @@ export default function AdvancedProfilePage() {
                 <span className="text-[10px] font-bold text-gray-500 mt-1 block">انبعاثات منعتها</span>
               </div>
               
-              <div className="bg-white p-5 rounded-[30px] border border-gray-100 shadow-sm text-center">
+              <div className="bg-white p-5 rounded-[30px] border border-gray-100 shadow-sm text-center hover:shadow-md transition-shadow">
                 <div className="w-10 h-10 bg-blue-50 text-blue-500 rounded-full flex items-center justify-center mx-auto mb-3">
                   <PiggyBank size={20} />
                 </div>
@@ -274,28 +273,7 @@ export default function AdvancedProfilePage() {
           </div>
         )}
 
-        {/* أقسام المالية */}
-        {userRole !== 'merchant' && userRole !== 'super_admin' && (
-          <div className="space-y-3">
-            <h2 className="text-xs font-black text-gray-400 mr-4 mb-2 uppercase italic tracking-wider">المالية وطرق الدفع</h2>
-            <div className="bg-white rounded-[35px] p-2 shadow-sm border border-gray-100 overflow-hidden">
-              {paymentMethods.map((item, i) => (
-                <button key={i} onClick={() => router.push(item.path)} className="w-full p-4 flex items-center gap-4 hover:bg-emerald-50 rounded-[25px] transition-all group border-b border-gray-50 last:border-none">
-                  <div className="p-3 rounded-2xl bg-gray-50 group-hover:bg-white shadow-sm transition-colors">
-                    <item.icon size={22} className={item.color} />
-                  </div>
-                  <div className="flex-1 text-right">
-                    <span className="font-bold text-sm text-gray-800 block">{item.name}</span>
-                    <span className="text-[9px] text-gray-400 font-black uppercase tracking-tighter">{item.subtitle}</span>
-                  </div>
-                  <ChevronLeft size={18} className="text-gray-300 group-hover:text-emerald-500 transition-colors" />
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* الأقسام الديناميكية المدمجة */}
+        {/* الأقسام الديناميكية */}
         {buildSections().map((section, idx) => (
           <div key={idx} className="space-y-3">
             <h2 className="text-xs font-black text-gray-400 mr-4 mb-2 uppercase italic tracking-wider">{section.title}</h2>
@@ -304,7 +282,7 @@ export default function AdvancedProfilePage() {
                 <button 
                   key={i} 
                   onClick={() => item.action ? item.action() : router.push(item.path)} 
-                  className="w-full p-4 flex items-center gap-4 hover:bg-emerald-50 rounded-[25px] transition-all group border-b border-gray-50 last:border-none"
+                  className="w-full p-4 flex items-center gap-4 hover:bg-emerald-50/50 rounded-[25px] transition-all group border-b border-gray-50 last:border-none"
                 >
                   <div className="p-3 rounded-2xl bg-gray-50 group-hover:bg-white shadow-sm transition-colors">
                     <item.icon size={22} className={item.color} />
@@ -319,9 +297,10 @@ export default function AdvancedProfilePage() {
           </div>
         ))}
 
+        {/* زر تسجيل الخروج */}
         <button 
           onClick={handleLogout}
-          className="w-full bg-rose-50 text-rose-600 p-5 rounded-[30px] border border-rose-100 font-black flex items-center justify-center gap-3 active:scale-95 transition-all shadow-sm mb-10 mt-6"
+          className="w-full bg-rose-50 hover:bg-rose-100 text-rose-600 p-5 rounded-[30px] border border-rose-100 font-black flex items-center justify-center gap-3 active:scale-95 transition-all shadow-sm mb-10 mt-6"
         >
           <LogOut size={22} /> تسجيل الخروج بأمان
         </button>
@@ -329,8 +308,8 @@ export default function AdvancedProfilePage() {
       
       {/* ================= نافذة الإعدادات (Modal) ================= */}
       {showSettingsModal && (
-        <div className="fixed inset-0 bg-slate-900/60 z-50 flex items-end animate-in fade-in duration-300 backdrop-blur-sm">
-          <div className="bg-white w-full rounded-t-[40px] p-8 pb-12 animate-in slide-in-from-bottom-8 duration-300">
+        <div className="fixed inset-0 bg-slate-950/40 z-50 flex items-end animate-in fade-in duration-300 backdrop-blur-sm">
+          <div className="bg-white w-full rounded-t-[40px] p-8 pb-12 animate-in slide-in-from-bottom-8 duration-300 shadow-2xl">
             <div className="flex justify-between items-center mb-8">
               <div>
                 <h2 className="text-xl font-black text-gray-900">إعدادات الحساب ⚙️</h2>
@@ -362,10 +341,28 @@ export default function AdvancedProfilePage() {
                 />
               </div>
 
+              {/* تحكم الإشعارات السريع */}
+              <div className="flex items-center justify-between bg-gray-50 p-4 rounded-2xl border border-gray-100 mt-2">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-emerald-100 text-emerald-600 rounded-xl"><BellRing size={18}/></div>
+                  <div>
+                    <span className="block text-sm font-black text-gray-900">تنبيهات العروض</span>
+                    <span className="block text-[10px] font-bold text-gray-400">احصل على إشعار عند توفر وجبات</span>
+                  </div>
+                </div>
+                <button 
+                  type="button"
+                  onClick={() => setNotificationsEnabled(!notificationsEnabled)}
+                  className={`w-12 h-6 rounded-full transition-colors relative ${notificationsEnabled ? 'bg-emerald-500' : 'bg-gray-300'}`}
+                >
+                  <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${notificationsEnabled ? 'left-1' : 'right-1'}`}></div>
+                </button>
+              </div>
+
               <button 
                 type="submit"
                 disabled={updatingSettings}
-                className="w-full bg-emerald-600 text-white py-4 rounded-[25px] font-black text-sm mt-4 shadow-xl shadow-emerald-600/20 active:scale-95 transition-all flex justify-center items-center gap-2 disabled:opacity-70"
+                className="w-full bg-emerald-600 text-white py-4 rounded-[25px] font-black text-sm mt-6 shadow-xl shadow-emerald-600/20 active:scale-95 transition-all flex justify-center items-center gap-2 disabled:opacity-70"
               >
                 {updatingSettings ? <Loader2 className="animate-spin" size={20} /> : <><CheckCircle size={18}/> حفظ التعديلات</>}
               </button>
@@ -376,8 +373,8 @@ export default function AdvancedProfilePage() {
 
       {/* ================= نافذة الدعم الفني (Modal) ================= */}
       {showSupportModal && (
-        <div className="fixed inset-0 bg-slate-900/60 z-50 flex items-end animate-in fade-in duration-300 backdrop-blur-sm">
-          <div className="bg-white w-full rounded-t-[40px] p-8 pb-12 animate-in slide-in-from-bottom-8 duration-300">
+        <div className="fixed inset-0 bg-slate-950/40 z-50 flex items-end animate-in fade-in duration-300 backdrop-blur-sm">
+          <div className="bg-white w-full rounded-t-[40px] p-8 pb-12 animate-in slide-in-from-bottom-8 duration-300 shadow-2xl">
             <div className="flex justify-between items-center mb-8">
               <div>
                 <h2 className="text-xl font-black text-gray-900">الدعم الفني 🎧</h2>
@@ -393,7 +390,7 @@ export default function AdvancedProfilePage() {
                   required
                   value={supportMessage}
                   onChange={(e) => setSupportMessage(e.target.value)}
-                  className="w-full bg-gray-50 border border-gray-100 rounded-2xl p-4 text-sm font-bold text-gray-900 focus:border-emerald-500 focus:bg-white outline-none transition-all h-32 resize-none"
+                  className="w-full bg-gray-50 border border-gray-100 rounded-2xl p-4 text-sm font-bold text-gray-900 focus:border-emerald-500 focus:bg-white outline-none transition-all h-32 resize-none shadow-inner"
                   placeholder="اكتب رسالتك، مشكلتك، أو اقتراحك هنا..."
                 ></textarea>
               </div>
