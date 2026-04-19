@@ -6,11 +6,15 @@ import UserRoleGate from "@/components/UserRoleGate";
 
 const inter = Inter({ subsets: ["latin"] });
 
-// 1. إعدادات الهوية والـ PWA المتقدمة لضمان العمل على آيفون وأندرويد
+// 1. إعدادات الهوية والـ PWA المتقدمة
 export const metadata: Metadata = {
   title: "نِعمة - لإنقاذ الطعام",
   description: "أنقذ وجبة، وفر مالك وحافظ على البيئة",
   manifest: "/manifest.json",
+  icons: {
+    icon: "/icon-192x192.png",
+    apple: "/icon-192x192.png",
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
@@ -24,7 +28,7 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
-  userScalable: false, // لمنع تكبير الشاشة بشكل يفسد شكل التطبيق
+  userScalable: false,
 };
 
 export default function RootLayout({
@@ -35,18 +39,19 @@ export default function RootLayout({
   return (
     <html lang="ar" dir="rtl">
       <head>
-        {/* أيقونة خاصة لأجهزة آيفون */}
+        {/* أيقونات إضافية لضمان التثبيت على كافة الأنظمة */}
         <link rel="apple-touch-icon" href="/icon-192x192.png" />
+        <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
       </head>
       <body className={inter.className}>
-        {/* تغليف التطبيق بالسلة وبوابة الأدوار */}
         <CartProvider>
           <UserRoleGate>
             {children}
           </UserRoleGate>
         </CartProvider>
         
-        {/* سكريبت تفعيل الـ Service Worker عند تحميل الصفحة */}
+        {/* سكريبت تفعيل الـ Service Worker */}
         <script
           dangerouslySetInnerHTML={{
             __html: `
