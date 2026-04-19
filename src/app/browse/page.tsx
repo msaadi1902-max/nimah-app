@@ -39,11 +39,14 @@ export default function BrowsePage() {
 
   const fetchItems = async () => {
     setLoading(true)
+    const today = new Date().toISOString().split('T')[0] // 👑 المراقب الذكي
+
     let query = supabase
       .from('meals')
       .select('*, profiles:merchant_id(shop_name)')
       .eq('is_approved', true)
       .gt('quantity', 0)
+      .gte('end_date', today) // إخفاء المنتهي
 
     if (activeCategory !== 'الكل') query = query.eq('category', activeCategory)
     
@@ -141,7 +144,6 @@ export default function BrowsePage() {
                       <div className="h-32 relative bg-gray-100">
                         <img src={item.image_url} alt={item.name} className="w-full h-full object-cover" />
                         
-                        {/* 👑 الإضافة الجديدة: شارة العرض الذهبي تظهر على الوجبة */}
                         {item.is_golden && (
                           <div className="absolute top-2 right-2 bg-gradient-to-r from-amber-400 to-yellow-500 text-slate-900 px-2 py-1 rounded-xl text-[10px] font-black shadow-sm flex items-center gap-1">
                             <Star size={10} className="fill-slate-900" /> ذهبي
@@ -161,7 +163,7 @@ export default function BrowsePage() {
                           
                           {item.start_date && item.end_date && (
                             <p className="text-[8px] text-gray-500 font-bold flex items-center gap-1 mt-1 bg-gray-50 w-fit px-1.5 py-0.5 rounded-md">
-                              <Calendar size={8} className="text-orange-400" /> من {item.start_date} لـ {item.end_date}
+                              <Calendar size={8} className="text-orange-400" /> لغاية {item.end_date}
                             </p>
                           )}
                         </div>

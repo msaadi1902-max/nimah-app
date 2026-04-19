@@ -16,7 +16,6 @@ export default function HomePage() {
   const [selectedCategory, setSelectedCategory] = useState('الكل')
   const [searchQuery, setSearchQuery] = useState('')
   
-  // حالات المستخدم والمفضلة
   const [user, setUser] = useState<any>(null)
   const [favoriteIds, setFavoriteIds] = useState<number[]>([])
   
@@ -41,11 +40,14 @@ export default function HomePage() {
 
   const fetchMealsAndRatings = async () => {
     setLoading(true)
+    const today = new Date().toISOString().split('T')[0] // تاريخ اليوم للمطابقة الذكية
+
     let query = supabase
       .from('meals')
       .select('*')
       .eq('is_approved', true) 
       .gt('quantity', 0)
+      .gte('end_date', today) // 👑 المراقب الذكي: إخفاء العروض المنتهية تلقائياً
       .order('created_at', { ascending: false })
 
     if (selectedCategory !== 'الكل') {
@@ -86,15 +88,12 @@ export default function HomePage() {
 
   const handleToggleFavorite = async (e: React.MouseEvent, mealId: number) => {
     e.stopPropagation() 
-    
     if (!user) {
       alert('يرجى تسجيل الدخول كزبون لإضافة الوجبات إلى مفضلتك ❤️')
       router.push('/welcome')
       return
     }
-
     const isFav = favoriteIds.includes(mealId)
-    
     if (isFav) {
       setFavoriteIds(prev => prev.filter(id => id !== mealId))
       await supabase.from('favorites').delete().eq('user_id', user.id).eq('meal_id', mealId)
@@ -104,7 +103,6 @@ export default function HomePage() {
     }
   }
 
-  // 👑 الفرز الذكي: العروض الذهبية مقابل العروض العادية
   const goldenMeals = meals.filter(meal => meal.is_golden === true)
   const regularMeals = meals.filter(meal => meal.is_golden !== true)
 
@@ -115,7 +113,6 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen bg-gray-50 pb-28 text-right font-sans" dir="rtl">
-      
       {/* الهيدر الأنيق */}
       <div className="bg-emerald-600 px-6 pt-12 pb-6 rounded-b-[40px] shadow-lg relative overflow-hidden">
         <div className="absolute top-0 right-0 w-40 h-40 bg-white/10 rounded-full -mr-20 -mt-20 blur-2xl"></div>
@@ -280,7 +277,7 @@ export default function HomePage() {
                       
                       {meal.start_date && meal.end_date && (
                         <p className="text-[9px] text-gray-500 font-bold flex items-center gap-1 mt-1 bg-gray-50 w-fit px-2 py-1 rounded-md">
-                          <Calendar size={10} className="text-orange-400" /> صالح من {meal.start_date} لـ {meal.end_date}
+                          <Calendar size={10} className="text-orange-400" /> صالح لغاية {meal.end_date}
                         </p>
                       )}
                     </div>
