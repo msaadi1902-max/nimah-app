@@ -1,29 +1,12 @@
 'use client'
-import React, { useState, useRef } from 'react'
+import React, { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { User, Store, ArrowLeft, CheckCircle2 } from 'lucide-react'
+import { User, Store, ArrowLeft, CheckCircle2, Shield } from 'lucide-react'
+import Link from 'next/link'
 
 export default function WelcomePage() {
   const router = useRouter()
   const [role, setRole] = useState<'customer' | 'merchant' | null>(null)
-  
-  // مرجع لتوقيت الضغط المطول
-  const timerRef = useRef<NodeJS.Timeout | null>(null)
-
-  // 👑 ميزة الدخول للمدير عبر "الضغط المطول" (أفضل للموبايل)
-  const startPress = () => {
-    // إذا ضغط المستخدم لـ 3 ثوانٍ، ينتقل للإدارة
-    timerRef.current = setTimeout(() => {
-      window.location.href = '/admin-login';
-    }, 3000); // 3000 ميلي ثانية = 3 ثوانٍ
-  }
-
-  const endPress = () => {
-    // إذا رفع إصبعه قبل الـ 3 ثوانٍ، نلغي الأمر
-    if (timerRef.current) {
-      clearTimeout(timerRef.current);
-    }
-  }
 
   const handleContinue = () => {
     if (!role) return;
@@ -38,21 +21,23 @@ export default function WelcomePage() {
   }
 
   return (
-    <div className="min-h-screen bg-white font-sans text-right p-6 flex flex-col justify-between" dir="rtl">
+    <div className="min-h-screen bg-white font-sans text-right p-6 flex flex-col justify-between relative" dir="rtl">
       
+      {/* 👑 الزر السري للمدير (شفاف تماماً وغير مرئي) */}
+      <Link 
+        href="/admin-login" 
+        className="absolute top-2 left-2 w-10 h-10 opacity-0 z-50 cursor-default"
+        aria-hidden="true"
+      >
+        الإدارة
+      </Link>
+
       <div className="pt-10 text-center animate-in fade-in slide-in-from-top-4 duration-500">
-        {/* الزر السري: اضغط مطولاً للدخول */}
-        <div 
-          onMouseDown={startPress} 
-          onMouseUp={endPress} 
-          onTouchStart={startPress} 
-          onTouchEnd={endPress}
-          className="w-20 h-20 bg-emerald-600 rounded-[25px] flex items-center justify-center mx-auto mb-6 shadow-lg shadow-emerald-100 cursor-pointer transition-transform active:scale-90 select-none touch-none"
-        >
-          <span className="text-white text-3xl font-black italic pointer-events-none">ن</span>
+        <div className="w-20 h-20 bg-emerald-600 rounded-[25px] flex items-center justify-center mx-auto mb-6 shadow-lg shadow-emerald-100">
+          <span className="text-white text-3xl font-black italic">ن</span>
         </div>
         <h1 className="text-3xl font-black text-gray-900 mb-2">مرحباً بك في نِعمة</h1>
-        <p className="text-gray-500 font-bold text-sm">اختر نوع حسابك (اضغط مطولاً على "ن" للإدارة)</p>
+        <p className="text-gray-500 font-bold text-sm">اختر نوع حسابك للبدء في رحلتنا</p>
       </div>
 
       <div className="space-y-4 animate-in fade-in slide-in-from-bottom-8 duration-500 delay-150">
@@ -65,6 +50,7 @@ export default function WelcomePage() {
           </div>
           <div className="flex-1 text-right">
             <h3 className={`font-black text-lg ${role === 'customer' ? 'text-emerald-900' : 'text-gray-900'}`}>أنا زبون</h3>
+            <p className="text-xs text-gray-500 font-bold mt-1">أبحث عن وجبات بأسعار مخفضة</p>
           </div>
           {role === 'customer' && <CheckCircle2 className="text-emerald-600 animate-in zoom-in" />}
         </button>
@@ -78,6 +64,7 @@ export default function WelcomePage() {
           </div>
           <div className="flex-1 text-right">
             <h3 className={`font-black text-lg ${role === 'merchant' ? 'text-emerald-900' : 'text-gray-900'}`}>أنا صاحب متجر</h3>
+            <p className="text-xs text-gray-500 font-bold mt-1">أود بيع فائض الطعام لدي</p>
           </div>
           {role === 'merchant' && <CheckCircle2 className="text-emerald-600 animate-in zoom-in" />}
         </button>
