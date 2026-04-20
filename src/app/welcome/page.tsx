@@ -7,6 +7,7 @@ import Link from 'next/link'
 export default function WelcomePage() {
   const router = useRouter()
   const [role, setRole] = useState<'customer' | 'merchant' | null>(null)
+  const [showAdminBtn, setShowAdminBtn] = useState(false)
 
   const handleContinue = () => {
     if (!role) return;
@@ -23,17 +24,12 @@ export default function WelcomePage() {
   return (
     <div className="min-h-screen bg-white font-sans text-right p-6 flex flex-col justify-between relative" dir="rtl">
       
-      {/* 👑 الزر السري للمدير (شفاف تماماً وغير مرئي) */}
-      <Link 
-        href="/admin-login" 
-        className="absolute top-2 left-2 w-10 h-10 opacity-0 z-50 cursor-default"
-        aria-hidden="true"
-      >
-        الإدارة
-      </Link>
-
       <div className="pt-10 text-center animate-in fade-in slide-in-from-top-4 duration-500">
-        <div className="w-20 h-20 bg-emerald-600 rounded-[25px] flex items-center justify-center mx-auto mb-6 shadow-lg shadow-emerald-100">
+        {/* عند النقر على النون يظهر زر الإدارة في الأسفل */}
+        <div 
+          onClick={() => setShowAdminBtn(!showAdminBtn)}
+          className="w-20 h-20 bg-emerald-600 rounded-[25px] flex items-center justify-center mx-auto mb-6 shadow-lg shadow-emerald-100 cursor-pointer active:scale-95 transition-transform"
+        >
           <span className="text-white text-3xl font-black italic">ن</span>
         </div>
         <h1 className="text-3xl font-black text-gray-900 mb-2">مرحباً بك في نِعمة</h1>
@@ -50,7 +46,6 @@ export default function WelcomePage() {
           </div>
           <div className="flex-1 text-right">
             <h3 className={`font-black text-lg ${role === 'customer' ? 'text-emerald-900' : 'text-gray-900'}`}>أنا زبون</h3>
-            <p className="text-xs text-gray-500 font-bold mt-1">أبحث عن وجبات بأسعار مخفضة</p>
           </div>
           {role === 'customer' && <CheckCircle2 className="text-emerald-600 animate-in zoom-in" />}
         </button>
@@ -64,13 +59,12 @@ export default function WelcomePage() {
           </div>
           <div className="flex-1 text-right">
             <h3 className={`font-black text-lg ${role === 'merchant' ? 'text-emerald-900' : 'text-gray-900'}`}>أنا صاحب متجر</h3>
-            <p className="text-xs text-gray-500 font-bold mt-1">أود بيع فائض الطعام لدي</p>
           </div>
           {role === 'merchant' && <CheckCircle2 className="text-emerald-600 animate-in zoom-in" />}
         </button>
       </div>
 
-      <div className="pb-10">
+      <div className="pb-10 space-y-4">
         <button 
           onClick={handleContinue}
           disabled={!role}
@@ -78,6 +72,16 @@ export default function WelcomePage() {
         >
           متابعة <ArrowLeft size={20} />
         </button>
+
+        {/* 👑 زر الإدارة يظهر فقط للمدير عند الحاجة */}
+        {showAdminBtn && (
+          <Link 
+            href="/admin-login"
+            className="w-full bg-slate-100 text-slate-600 py-4 rounded-[20px] font-black text-xs flex items-center justify-center gap-2 border border-slate-200 animate-in fade-in slide-in-from-bottom-2"
+          >
+            <Shield size={16} /> دخول الإدارة
+          </Link>
+        )}
       </div>
     </div>
   )
