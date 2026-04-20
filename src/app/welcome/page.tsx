@@ -10,24 +10,28 @@ export default function WelcomePage() {
   const clickCountRef = useRef(0)
   const timerRef = useRef<NodeJS.Timeout | null>(null)
 
-  // 👑 ميزة الدخول للمدير - مطورة للموبايل
-  const handleSecretLogoClick = (e: React.MouseEvent | React.TouchEvent) => {
-    // منع المتصفح من تكبير الشاشة عند النقر المتكرر
-    if (e.type === 'touchstart') {
-      // لا نستخدم preventDefault هنا لضمان عمل النظام بسلاسة، ولكن نعتمد على توقيت اللمس
-    }
+  // 👑 دالة الدخول السري - النسخة الفولاذية للموبايل
+  const handleSecretClick = (e: React.MouseEvent | React.TouchEvent) => {
+    // منع الوميض وتحديث الصفحة
+    e.preventDefault();
+    e.stopPropagation();
 
-    clickCountRef.current += 1
+    clickCountRef.current += 1;
+
+    // إظهار تنبيه بسيط في الكونسول للتأكد (اختياري)
+    console.log("Click count:", clickCountRef.current);
 
     if (clickCountRef.current >= 5) {
-      router.push('/admin-login')
-      clickCountRef.current = 0
+      clickCountRef.current = 0;
+      // استخدام window.location للتوجيه القسري لضمان كسر أي حلقة تكرار
+      window.location.href = '/admin-login';
+      return;
     }
 
-    if (timerRef.current) clearTimeout(timerRef.current)
+    if (timerRef.current) clearTimeout(timerRef.current);
     timerRef.current = setTimeout(() => {
-      clickCountRef.current = 0
-    }, 2000) // زدنا الوقت قليلاً ليكون أسهل في الموبايل
+      clickCountRef.current = 0;
+    }, 2000);
   }
 
   const handleContinue = () => {
@@ -36,23 +40,22 @@ export default function WelcomePage() {
     localStorage.setItem('user_role', role);
 
     if (role === 'merchant') {
-      router.push('/merchant-register')
+      router.push('/merchant-register');
     } else {
-      router.push(`/auth?role=${role}`)
+      router.push(`/auth?role=${role}`);
     }
   }
 
   return (
-    <div className="min-h-screen bg-white font-sans text-right p-6 flex flex-col justify-between select-none" dir="rtl">
+    <div className="min-h-screen bg-white font-sans text-right p-6 flex flex-col justify-between" dir="rtl">
       
       <div className="pt-10 text-center animate-in fade-in slide-in-from-top-4 duration-500">
+        {/* الزر السري مع حماية كاملة من الوميض */}
         <div 
-          // أضفنا onTouchStart لضمان استجابة فورية على الموبايل
-          onClick={handleSecretLogoClick}
-          onTouchStart={(e) => {
-             // تجربة لمس سريعة
-          }}
-          className="w-20 h-20 bg-emerald-600 rounded-[25px] flex items-center justify-center mx-auto mb-6 shadow-lg shadow-emerald-100 cursor-pointer transition-transform active:scale-90 touch-manipulation"
+          onClick={handleSecretClick}
+          onContextMenu={(e) => e.preventDefault()} // منع ظهور قائمة "حفظ الصورة"
+          className="w-20 h-20 bg-emerald-600 rounded-[25px] flex items-center justify-center mx-auto mb-6 shadow-lg shadow-emerald-100 cursor-pointer transition-transform active:scale-90 touch-none select-none"
+          style={{ touchAction: 'none', WebkitTapHighlightColor: 'transparent' }}
         >
           <span className="text-white text-3xl font-black italic pointer-events-none">ن</span>
         </div>
@@ -94,7 +97,7 @@ export default function WelcomePage() {
         <button 
           onClick={handleContinue}
           disabled={!role}
-          className="w-full bg-gray-900 text-white py-5 rounded-[25px] font-black text-lg shadow-xl shadow-gray-200 active:scale-95 transition-all disabled:opacity-30 flex items-center justify-center gap-2 hover:bg-black"
+          className="w-full bg-gray-900 text-white py-5 rounded-[25px] font-black text-lg shadow-xl shadow-gray-200 active:scale-95 transition-all disabled:opacity-30 flex items-center justify-center gap-2"
         >
           متابعة <ArrowLeft size={20} />
         </button>
