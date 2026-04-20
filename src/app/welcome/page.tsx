@@ -2,7 +2,6 @@
 import React, { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { User, Store, ArrowLeft, CheckCircle2, Shield } from 'lucide-react'
-import Link from 'next/link'
 
 export default function WelcomePage() {
   const router = useRouter()
@@ -21,13 +20,19 @@ export default function WelcomePage() {
     }
   }
 
+  // دالة الدخول للإدارة مع ضمان عدم الاختفاء المفاجئ
+  const goToAdmin = (e: React.MouseEvent) => {
+    e.preventDefault();
+    // نستخدم window.location لضمان الانتقال القسري على الموبايل
+    window.location.href = '/admin-login';
+  }
+
   return (
-    <div className="min-h-screen bg-white font-sans text-right p-6 flex flex-col justify-between relative" dir="rtl">
+    <div className="min-h-screen bg-white font-sans text-right p-6 flex flex-col justify-between" dir="rtl">
       
       <div className="pt-10 text-center animate-in fade-in slide-in-from-top-4 duration-500">
-        {/* عند النقر على النون يظهر زر الإدارة في الأسفل */}
         <div 
-          onClick={() => setShowAdminBtn(!showAdminBtn)}
+          onClick={() => setShowAdminBtn(true)} // نجعله true دائماً عند النقر ولا يتبدل
           className="w-20 h-20 bg-emerald-600 rounded-[25px] flex items-center justify-center mx-auto mb-6 shadow-lg shadow-emerald-100 cursor-pointer active:scale-95 transition-transform"
         >
           <span className="text-white text-3xl font-black italic">ن</span>
@@ -73,14 +78,14 @@ export default function WelcomePage() {
           متابعة <ArrowLeft size={20} />
         </button>
 
-        {/* 👑 زر الإدارة يظهر فقط للمدير عند الحاجة */}
+        {/* 👑 الزر المعدل: ثابت ويستخدم انتقال قسري */}
         {showAdminBtn && (
-          <Link 
-            href="/admin-login"
-            className="w-full bg-slate-100 text-slate-600 py-4 rounded-[20px] font-black text-xs flex items-center justify-center gap-2 border border-slate-200 animate-in fade-in slide-in-from-bottom-2"
+          <button 
+            onClick={goToAdmin}
+            className="w-full bg-slate-100 text-slate-600 py-4 rounded-[20px] font-black text-xs flex items-center justify-center gap-2 border border-slate-200 animate-in fade-in slide-in-from-bottom-2 active:bg-slate-200"
           >
-            <Shield size={16} /> دخول الإدارة
-          </Link>
+            <Shield size={16} /> دخول الإدارة (اضغط هنا)
+          </button>
         )}
       </div>
     </div>
