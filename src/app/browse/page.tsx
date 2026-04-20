@@ -39,18 +39,20 @@ export default function BrowsePage() {
 
   const fetchItems = async () => {
     setLoading(true)
-    const today = new Date().toISOString().split('T')[0] // 👑 المراقب الذكي
+    const today = new Date().toISOString().split('T')[0] 
 
     let query = supabase
       .from('meals')
       .select('*, profiles:merchant_id(shop_name)')
       .eq('is_approved', true)
+      .eq('is_sponsored', false) // 👑 جلب العروض المجانية للتجار فقط
       .gt('quantity', 0)
-      .gte('end_date', today) // إخفاء المنتهي
+      .gte('end_date', today)
 
     if (activeCategory !== 'الكل') query = query.eq('category', activeCategory)
     
-    if (sortBy === 'newest') query = query.order('id', { ascending: false })
+    // 👑 الترتيب من الأحدث للأقدم كخيار افتراضي
+    if (sortBy === 'newest') query = query.order('created_at', { ascending: false })
     if (sortBy === 'price_low') query = query.order('discounted_price', { ascending: true })
     if (sortBy === 'price_high') query = query.order('discounted_price', { ascending: false })
 
@@ -84,12 +86,9 @@ export default function BrowsePage() {
   return (
     <div className="min-h-screen bg-gray-50 pb-28 font-sans text-right" dir="rtl">
       <div className="bg-white px-4 pt-10 pb-4 sticky top-0 z-20 shadow-sm rounded-b-3xl">
-        <h1 className="text-2xl font-black text-gray-900 mb-4 px-2">استكشف السوق 🌍</h1>
+        <h1 className="text-2xl font-black text-gray-900 mb-4 px-2">سوق نِعمة للتجار 🛒</h1>
         <div className="flex gap-2 mb-4">
-          <button 
-            onClick={() => setShowFilter(true)}
-            className="bg-emerald-50 p-3 rounded-2xl text-emerald-700 border border-emerald-100 active:scale-95 transition-transform"
-          >
+          <button onClick={() => setShowFilter(true)} className="bg-emerald-50 p-3 rounded-2xl text-emerald-700 border border-emerald-100 active:scale-95 transition-transform">
             <SlidersHorizontal size={22} />
           </button>
           <div className="relative flex-1">
@@ -128,29 +127,23 @@ export default function BrowsePage() {
               {loading ? (
                 <div className="flex flex-col items-center py-20 text-emerald-600"><Loader2 className="animate-spin mb-2" size={32} /><span className="font-bold">جاري البحث...</span></div>
               ) : items.length === 0 ? (
-                <div className="text-center bg-white p-10 rounded-[30px] border border-gray-100 mt-4 shadow-sm"><Search size={40} className="mx-auto text-gray-300 mb-3" /><p className="text-gray-500 font-bold text-sm">لم نجد أي عروض تطابق بحثك حالياً.</p></div>
+                <div className="text-center bg-white p-10 rounded-[30px] border border-gray-100 mt-4 shadow-sm">
+                  <Search size={40} className="mx-auto text-gray-300 mb-3" />
+                  <p className="text-gray-500 font-bold text-sm">السوق فارغ حالياً أو لا يوجد نتائج تطابق بحثك.</p>
+                </div>
               ) : (
                 <div className="grid grid-cols-2 gap-4 pb-10">
                   {items.map((item) => (
-                    <div key={item.id} className="bg-white rounded-3xl overflow-hidden shadow-sm border border-gray-100 transition-transform flex flex-col relative group">
+                    <div key={item.id} className="bg-white rounded-3xl overflow-hidden shadow-sm border border-gray-100 transition-transform flex flex-col relative group animate-in slide-in-from-bottom-4">
                       
-                      <button 
-                        onClick={(e) => { e.stopPropagation(); toggleFavorite(item.id); }}
-                        className="absolute top-2 left-2 z-10 bg-white/90 backdrop-blur p-2 rounded-full shadow-sm transition-colors"
-                      >
+                      <button onClick={(e) => { e.stopPropagation(); toggleFavorite(item.id); }} className="absolute top-2 left-2 z-10 bg-white/90 backdrop-blur p-2 rounded-full shadow-sm transition-colors">
                         <Heart size={16} className={favorites.includes(item.id) ? 'text-rose-500 fill-rose-500' : 'text-gray-400'} />
                       </button>
 
                       <div className="h-32 relative bg-gray-100">
                         <img src={item.image_url} alt={item.name} className="w-full h-full object-cover" />
                         
-                        {item.is_golden && (
-                          <div className="absolute top-2 right-2 bg-gradient-to-r from-amber-400 to-yellow-500 text-slate-900 px-2 py-1 rounded-xl text-[10px] font-black shadow-sm flex items-center gap-1">
-                            <Star size={10} className="fill-slate-900" /> ذهبي
-                          </div>
-                        )}
-                        
-                        <div className={`absolute ${item.is_golden ? 'top-8' : 'top-2'} right-2 bg-rose-500 text-white px-2 py-1 rounded-xl text-[10px] font-black shadow-sm transition-all`}>
+                        <div className={`absolute top-2 right-2 bg-rose-500 text-white px-2 py-1 rounded-xl text-[10px] font-black shadow-sm transition-all`}>
                           -{item.original_price > 0 ? Math.round(((item.original_price - item.discounted_price) / item.original_price) * 100) : 0}%
                         </div>
                       </div>
@@ -184,6 +177,7 @@ export default function BrowsePage() {
         )}
       </div>
 
+      {/* نافذة الفلترة */}
       {showFilter && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-end animate-in fade-in duration-300">
           <div className="bg-white w-full rounded-t-[40px] p-6 pb-10 animate-in slide-in-from-bottom-10 duration-300">

@@ -1,7 +1,7 @@
 'use client'
 import React, { useEffect, useState } from 'react'
 import { createClient } from '@supabase/supabase-js'
-import { Search, MapPin, Clock, ShoppingBag, Flame, Loader2, Store, Plus, Star, Sparkles, Calendar, Heart } from 'lucide-react'
+import { Search, MapPin, Clock, ShoppingBag, Flame, Loader2, Store, Plus, Star, Sparkles, Calendar, Heart, Megaphone } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import BottomNav from '@/components/BottomNav'
 import { useCart } from './context/CartContext'
@@ -24,7 +24,7 @@ export default function HomePage() {
 
   useEffect(() => {
     checkUserAndFavorites()
-    fetchMealsAndRatings()
+    fetchSponsoredMeals()
   }, [selectedCategory])
 
   const checkUserAndFavorites = async () => {
@@ -32,27 +32,25 @@ export default function HomePage() {
     if (user) {
       setUser(user)
       const { data } = await supabase.from('favorites').select('meal_id').eq('user_id', user.id)
-      if (data) {
-        setFavoriteIds(data.map(f => f.meal_id))
-      }
+      if (data) setFavoriteIds(data.map(f => f.meal_id))
     }
   }
 
-  const fetchMealsAndRatings = async () => {
+  // 👑 الميزة الجديدة: جلب الإعلانات الممولة فقط للصفحة الرئيسية
+  const fetchSponsoredMeals = async () => {
     setLoading(true)
-    const today = new Date().toISOString().split('T')[0] // تاريخ اليوم للمطابقة الذكية
+    const today = new Date().toISOString().split('T')[0]
 
     let query = supabase
       .from('meals')
       .select('*')
       .eq('is_approved', true) 
+      .eq('is_sponsored', true) // 👑 عرض الإعلانات الممولة فقط
       .gt('quantity', 0)
-      .gte('end_date', today) // 👑 المراقب الذكي: إخفاء العروض المنتهية تلقائياً
+      .gte('end_date', today)
       .order('created_at', { ascending: false })
 
-    if (selectedCategory !== 'الكل') {
-      query = query.eq('category', selectedCategory)
-    }
+    if (selectedCategory !== 'الكل') query = query.eq('category', selectedCategory)
 
     const { data: mealsData } = await query
     const { data: reviewsData } = await supabase.from('reviews').select('merchant_id, rating')
@@ -62,12 +60,7 @@ export default function HomePage() {
         const merchantReviews = reviewsData?.filter(r => r.merchant_id === meal.merchant_id) || []
         const totalRating = merchantReviews.reduce((sum, r) => sum + r.rating, 0)
         const averageRating = merchantReviews.length > 0 ? (totalRating / merchantReviews.length).toFixed(1) : 'جديد'
-        
-        return {
-          ...meal,
-          rating: averageRating,
-          reviewsCount: merchantReviews.length
-        }
+        return { ...meal, rating: averageRating, reviewsCount: merchantReviews.length }
       })
       setMeals(mealsWithRatings)
     }
@@ -103,10 +96,10 @@ export default function HomePage() {
     }
   }
 
-  const goldenMeals = meals.filter(meal => meal.is_golden === true)
-  const regularMeals = meals.filter(meal => meal.is_golden !== true)
+  const goldenAds = meals.filter(meal => meal.is_golden === true)
+  const regularAds = meals.filter(meal => meal.is_golden !== true)
 
-  const filteredRegularMeals = regularMeals.filter(meal => 
+  const filteredAds = regularAds.filter(meal => 
     meal.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
     meal.category.includes(searchQuery)
   )
@@ -124,10 +117,7 @@ export default function HomePage() {
               <MapPin size={16} /> دمشق، الميدان
             </h1>
           </div>
-          <button 
-            onClick={() => router.push('/cart')} 
-            className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-emerald-600 shadow-lg active:scale-90 transition-all relative"
-          >
+          <button onClick={() => router.push('/cart')} className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-emerald-600 shadow-lg active:scale-90 transition-all relative">
             <ShoppingBag size={22} />
             {cart.length > 0 && (
               <span className="absolute -top-1 -left-1 bg-rose-500 text-white text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center border-2 border-white animate-bounce">
@@ -140,7 +130,7 @@ export default function HomePage() {
         <div className="relative z-10">
           <input 
             type="text" 
-            placeholder="ابحث عن وجبة، متجر..." 
+            placeholder="ابحث في الإعلانات المميزة..." 
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full bg-white/95 rounded-2xl py-4 pr-12 pl-4 text-sm font-bold text-gray-900 focus:outline-none shadow-sm transition-all focus:ring-2 focus:ring-emerald-300"
@@ -157,9 +147,7 @@ export default function HomePage() {
               key={cat}
               onClick={() => setSelectedCategory(cat)}
               className={`px-6 py-2.5 rounded-2xl text-xs font-black transition-all shadow-sm border ${
-                selectedCategory === cat 
-                  ? 'bg-gray-900 text-white border-gray-900' 
-                  : 'bg-white text-gray-500 border-gray-100 hover:bg-emerald-50'
+                selectedCategory === cat ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-500 border-gray-100 hover:bg-emerald-50'
               }`}
             >
               {cat}
@@ -168,28 +156,21 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* 👑 قسم العروض الذهبية (VIP) */}
-      {!searchQuery && selectedCategory === 'الكل' && goldenMeals.length > 0 && (
+      {/* 👑 قسم إعلانات الـ VIP */}
+      {!searchQuery && selectedCategory === 'الكل' && goldenAds.length > 0 && (
         <div className="px-6 mt-6">
           <h2 className="text-lg font-black text-transparent bg-clip-text bg-gradient-to-r from-amber-500 to-yellow-600 mb-4 flex items-center gap-2">
-            <Sparkles size={20} className="text-amber-500 fill-amber-500 animate-pulse" /> العروض الذهبية 👑
+            <Sparkles size={20} className="text-amber-500 fill-amber-500 animate-pulse" /> إعلانات VIP 👑
           </h2>
           
           <div className="flex gap-4 overflow-x-auto hide-scrollbar pb-4 snap-x">
-            {goldenMeals.map((meal) => (
-              <div 
-                key={`gold-${meal.id}`} 
-                onClick={() => router.push(`/meal/${meal.id}`)}
-                className="cursor-pointer min-w-[280px] bg-gradient-to-br from-slate-900 to-slate-800 text-white rounded-[35px] overflow-hidden shadow-xl border border-amber-500/30 relative snap-center group"
-              >
+            {goldenAds.map((meal) => (
+              <div key={`gold-${meal.id}`} onClick={() => router.push(`/meal/${meal.id}`)} className="cursor-pointer min-w-[280px] bg-gradient-to-br from-slate-900 to-slate-800 text-white rounded-[35px] overflow-hidden shadow-xl border border-amber-500/30 relative snap-center group">
                 <div className="absolute top-4 right-4 z-10 bg-gradient-to-r from-amber-400 to-yellow-500 text-slate-900 text-[10px] font-black px-3 py-1.5 rounded-full shadow-[0_0_15px_rgba(245,158,11,0.5)] flex items-center gap-1">
-                  <Star size={12} className="fill-slate-900"/> عرض مميز
+                  <Megaphone size={12} className="fill-slate-900"/> إعلان ممول
                 </div>
 
-                <button 
-                  onClick={(e) => handleToggleFavorite(e, meal.id)}
-                  className="absolute top-4 left-4 z-20 bg-white/10 backdrop-blur-md p-2 rounded-full hover:bg-white/30 transition-colors active:scale-90 border border-white/10"
-                >
+                <button onClick={(e) => handleToggleFavorite(e, meal.id)} className="absolute top-4 left-4 z-20 bg-white/10 backdrop-blur-md p-2 rounded-full hover:bg-white/30 transition-colors active:scale-90 border border-white/10">
                   <Heart size={16} className={favoriteIds.includes(meal.id) ? "fill-rose-500 text-rose-500" : "text-white"} />
                 </button>
                 
@@ -205,10 +186,7 @@ export default function HomePage() {
                       <p className="text-2xl font-black text-amber-400">{meal.discounted_price} {meal.currency || 'ل.س'}</p>
                       <p className="text-[10px] font-bold text-slate-400 line-through">{meal.original_price} {meal.currency || 'ل.س'}</p>
                     </div>
-                    <button 
-                      onClick={(e) => handleAddToCart(e, meal)} 
-                      className="bg-gradient-to-r from-amber-400 to-yellow-500 hover:from-amber-500 hover:to-yellow-600 text-slate-900 px-4 py-2 rounded-xl text-xs font-black shadow-lg active:scale-95 transition-all flex items-center gap-1"
-                    >
+                    <button onClick={(e) => handleAddToCart(e, meal)} className="bg-gradient-to-r from-amber-400 to-yellow-500 hover:from-amber-500 hover:to-yellow-600 text-slate-900 px-4 py-2 rounded-xl text-xs font-black shadow-lg active:scale-95 transition-all flex items-center gap-1">
                       <Plus size={14} /> إضافة
                     </button>
                   </div>
@@ -219,48 +197,34 @@ export default function HomePage() {
         </div>
       )}
 
-      {/* قائمة العروض العادية الحية */}
+      {/* 👑 قسم الإعلانات المميزة العادية */}
       <div className="p-6">
         <h2 className="text-lg font-black text-gray-900 mb-4 flex items-center gap-2">
-          <Flame size={20} className="text-rose-500" /> عروض السوق الحية 🔥
+          <Flame size={20} className="text-rose-500" /> العروض المميزة 🔥
         </h2>
 
         {loading ? (
           <div className="flex justify-center items-center py-20 text-emerald-600">
             <Loader2 className="animate-spin w-10 h-10" />
           </div>
-        ) : filteredRegularMeals.length === 0 ? (
+        ) : filteredAds.length === 0 ? (
           <div className="text-center bg-white p-10 rounded-[35px] border border-gray-100 shadow-sm mt-4 text-gray-400 font-bold">
-            <Store size={40} className="mx-auto mb-4 opacity-20" />
-            {searchQuery ? 'لا توجد نتائج تطابق بحثك' : 'لا توجد عروض حالياً في هذا القسم'}
+            <Megaphone size={40} className="mx-auto mb-4 opacity-20" />
+            {searchQuery ? 'لا توجد نتائج تطابق بحثك' : 'لا توجد إعلانات مميزة حالياً'}
+            <button onClick={() => router.push('/browse')} className="mt-6 bg-emerald-50 text-emerald-600 px-6 py-3 rounded-2xl font-black text-xs active:scale-95 w-full">تصفح سوق التجار المجاني 🛒</button>
           </div>
         ) : (
           <div className="space-y-5">
-            {filteredRegularMeals.map((meal) => (
-              <div 
-                key={`norm-${meal.id}`} 
-                onClick={() => router.push(`/meal/${meal.id}`)}
-                className="cursor-pointer bg-white rounded-[35px] overflow-hidden shadow-sm border border-gray-100 relative group animate-in slide-in-from-bottom-4 duration-500 hover:shadow-md transition-shadow"
-              >
+            {filteredAds.map((meal) => (
+              <div key={`norm-${meal.id}`} onClick={() => router.push(`/meal/${meal.id}`)} className="cursor-pointer bg-white rounded-[35px] overflow-hidden shadow-sm border border-gray-100 relative group animate-in slide-in-from-bottom-4 duration-500 hover:shadow-md transition-shadow">
                 
-                {/* شارة الخصم */}
-                <div className="absolute top-4 right-4 z-10 bg-rose-500 text-white text-[10px] font-black px-3 py-1.5 rounded-full shadow-sm">
-                  وفر {meal.original_price > 0 ? Math.round(((meal.original_price - meal.discounted_price) / meal.original_price) * 100) : 0}%
+                <div className="absolute top-4 right-4 z-10 bg-indigo-500 text-white text-[10px] font-black px-3 py-1.5 rounded-full shadow-sm flex items-center gap-1">
+                  <Megaphone size={10} /> إعلان
                 </div>
 
-                {/* زر المفضلة (القلب التفاعلي) ❤️ */}
-                <button 
-                  onClick={(e) => handleToggleFavorite(e, meal.id)}
-                  className="absolute top-4 left-4 z-20 bg-white/90 backdrop-blur p-2.5 rounded-full shadow-sm hover:scale-110 active:scale-90 transition-transform"
-                >
+                <button onClick={(e) => handleToggleFavorite(e, meal.id)} className="absolute top-4 left-4 z-20 bg-white/90 backdrop-blur p-2.5 rounded-full shadow-sm hover:scale-110 active:scale-90 transition-transform">
                   <Heart size={18} className={favoriteIds.includes(meal.id) ? "fill-rose-500 text-rose-500" : "text-gray-400 hover:text-rose-400"} />
                 </button>
-                
-                {/* شارة التقييم ⭐ */}
-                <div className="absolute bottom-4 left-4 z-10 bg-white/95 backdrop-blur text-gray-900 text-[10px] font-black px-3 py-1.5 rounded-full shadow-sm flex items-center gap-1">
-                  <Star size={12} className={meal.rating === 'جديد' ? 'text-gray-400' : 'text-amber-500 fill-amber-500'} />
-                  {meal.rating}
-                </div>
                 
                 <div className="h-44 bg-gray-200 relative overflow-hidden">
                   <img src={meal.image_url} alt={meal.name} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
@@ -289,16 +253,9 @@ export default function HomePage() {
                   </div>
 
                   <div className="flex gap-3 items-center pt-2">
-                    <button 
-                      onClick={(e) => handleAddToCart(e, meal)} 
-                      className="flex-1 bg-emerald-600 text-white py-4 rounded-2xl text-sm font-black active:scale-95 transition-all shadow-md shadow-emerald-100 flex justify-center items-center gap-2 hover:bg-emerald-700"
-                    >
+                    <button onClick={(e) => handleAddToCart(e, meal)} className="flex-1 bg-emerald-600 text-white py-4 rounded-2xl text-sm font-black active:scale-95 transition-all shadow-md shadow-emerald-100 flex justify-center items-center gap-2 hover:bg-emerald-700">
                       <Plus size={18} /> أضف للسلة
                     </button>
-                    <div className="bg-gray-50 text-gray-900 px-4 py-2 rounded-2xl border border-gray-100 text-center min-w-[70px]">
-                      <span className="block text-[9px] font-bold text-gray-400">باقي</span>
-                      <span className="text-lg font-black leading-none">{meal.quantity}</span>
-                    </div>
                   </div>
                 </div>
               </div>
