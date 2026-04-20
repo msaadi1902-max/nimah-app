@@ -7,7 +7,7 @@ import {
   Store, Info, Share2, LogOut, ChevronLeft, Heart,
   Landmark, ShieldCheck, Loader2, Sparkles, Settings,
   Leaf, TrendingDown, PiggyBank, Headphones, X, CheckCircle,
-  History, ArrowRightLeft, BellRing
+  History, ArrowRightLeft, BellRing, Star
 } from 'lucide-react'
 import BottomNav from '@/components/BottomNav'
 
@@ -19,6 +19,8 @@ export default function AdvancedProfilePage() {
   const [userRole, setUserRole] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   
+  // 👑 دمج الإحصائيات مع المفضلة
+  const [favorites, setFavorites] = useState<any[]>([])
   const [stats, setStats] = useState({
     rescuedMeals: 0,
     savedMoney: 0,
@@ -56,11 +58,13 @@ export default function AdvancedProfilePage() {
         setUserRole(profileData.role)
         setEditName(profileData.full_name || '') 
 
-        if (profileData.role !== 'merchant') {
+        if (profileData.role !== 'merchant' && profileData.role !== 'super_admin') {
+          // جلب الإحصائيات
           const { data: orders } = await supabase
             .from('orders')
             .select('price, meals(original_price)')
-            .eq('customer_email', user.email)
+            .eq('user_id', user.id)
+            .eq('status', 'used') // نحسب فقط ما تم استلامه
 
           if (orders && orders.length > 0) {
             const rescued = orders.length
@@ -69,12 +73,17 @@ export default function AdvancedProfilePage() {
               const original = o.meals?.original_price || o.price
               if (original > o.price) saved += (original - o.price)
             })
+            setStats({ rescuedMeals: rescued, savedMoney: saved, co2Saved: rescued * 2.5 })
+          }
 
-            setStats({
-              rescuedMeals: rescued,
-              savedMoney: saved,
-              co2Saved: rescued * 2.5 
-            })
+          // جلب المفضلة
+          const { data: favsData } = await supabase
+            .from('favorites')
+            .select('meal_id, meals(*, profiles:merchant_id(shop_name))')
+            .eq('user_id', user.id)
+          if (favsData) {
+            const validFavs = favsData.map(f => f.meals).filter(m => m !== null)
+            setFavorites(validFavs)
           }
         }
       }
@@ -144,12 +153,12 @@ export default function AdvancedProfilePage() {
       ]
     })
 
-    if (userRole !== 'merchant') {
+    if (userRole !== 'merchant' && userRole !== 'super_admin') {
       sections.push({
         title: "طلباتي وحجوزاتي",
         items: [
           { name: 'تذاكر الحجز النشطة 🎟️', icon: Ticket, color: 'text-rose-500', path: '/tickets' },
-          { name: 'سجل المشتريات السابق', icon: History, color: 'text-blue-500', path: '/order-history' },
+          { name: 'سجل المشتريات السابق', icon: History, color: 'text-blue-500', path: '/tickets' },
         ]
       })
       sections.push({
@@ -166,7 +175,15 @@ export default function AdvancedProfilePage() {
         title: "إدارة الأعمال",
         items: [
           { name: 'لوحة تحكم المتجر 👨‍🍳', icon: Store, color: 'text-emerald-600', path: '/merchant-dashboard' },
-          { name: 'إدارة الطلبات الواردة 📦', icon: ShieldCheck, color: 'text-blue-600', path: '/merchant-orders' },
+        ]
+      })
+    }
+
+    if (userRole === 'staff' || userRole === 'super_admin') {
+      sections.push({
+        title: "الإدارة والنظام",
+        items: [
+          { name: 'لوحة التحكم والمراجعة ⚙️', icon: ShieldCheck, color: 'text-emerald-600', path: '/admin-panel' },
         ]
       })
     }
@@ -199,9 +216,9 @@ export default function AdvancedProfilePage() {
         <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-32 -mt-32 blur-3xl"></div>
         <div className="absolute bottom-0 left-0 w-40 h-40 bg-emerald-400/20 rounded-full -ml-20 -mb-20 blur-2xl"></div>
         
-        <div className="relative z-10 text-center flex flex-col items-center">
+        <div className="relative z-10 text-center flex flex-col items-center mt-6">
           <div className="relative group cursor-pointer" onClick={() => setShowSettingsModal(true)}>
-            <div className="w-24 h-24 rounded-[35px] bg-white/20 mb-4 border-4 border-white/50 flex items-center justify-center shadow-2xl backdrop-blur-md overflow-hidden">
+            <div className="w-24 h-24 rounded-[35px] bg-white/20 mb-4 border-4 border-white/50 flex items-center justify-center shadow-2xl backdrop-blur-md overflow-hidden hover:rotate-3 transition-transform">
                 <div className="w-full h-full bg-emerald-50 flex items-center justify-center text-emerald-600 text-4xl font-black shadow-inner">
                   {profile?.full_name?.charAt(0) || <UserCircle size={48} />}
                 </div>
@@ -217,7 +234,7 @@ export default function AdvancedProfilePage() {
           <div className="flex items-center gap-2 mt-3 bg-black/20 px-4 py-1.5 rounded-full backdrop-blur-sm border border-white/10">
             <ShieldCheck size={14} className="text-emerald-300" />
             <span className="text-[10px] font-black uppercase tracking-wider">
-              {userRole === 'merchant' ? 'تاجر معتمد' : userRole === 'super_admin' ? 'مدير عام 👑' : 'زبون موثق'}
+              {userRole === 'merchant' ? 'تاجر معتمد' : userRole === 'super_admin' ? 'مدير عام 👑' : userRole === 'staff' ? 'موظف دعم' : 'زبون موثق'}
             </span>
           </div>
         </div>
@@ -225,9 +242,8 @@ export default function AdvancedProfilePage() {
 
       <div className="px-6 space-y-6 relative z-20">
         
-        {/* 💳 بطاقة المحفظة الرقمية (تصميم Tier-1) */}
+        {/* 💳 بطاقة المحفظة الرقمية */}
         <div className="bg-gradient-to-br from-emerald-800 to-slate-900 p-6 rounded-[35px] shadow-2xl relative overflow-hidden text-white flex items-center justify-between group">
-          {/* تأثيرات لمعان البطاقة */}
           <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/20 rounded-full blur-2xl -mr-10 -mt-10"></div>
           <div className="absolute bottom-0 left-0 w-24 h-24 bg-blue-500/20 rounded-full blur-2xl -ml-10 -mb-10"></div>
           
@@ -247,8 +263,8 @@ export default function AdvancedProfilePage() {
           </button>
         </div>
 
-        {/* إحصائيات الأثر البيئي */}
-        {userRole !== 'merchant' && userRole !== 'super_admin' && (
+        {/* إحصائيات الأثر البيئي للزبون فقط */}
+        {userRole !== 'merchant' && userRole !== 'super_admin' && userRole !== 'staff' && (
           <div className="space-y-3">
             <h2 className="text-xs font-black text-gray-400 mr-4 mb-2 uppercase italic tracking-wider flex items-center gap-1">
               <Leaf size={14} className="text-emerald-500" /> أثرك الإيجابي المباشر
@@ -269,6 +285,32 @@ export default function AdvancedProfilePage() {
                 <span className="block text-2xl font-black text-gray-900">{stats.savedMoney.toFixed(1)} <span className="text-xs text-gray-400">€</span></span>
                 <span className="text-[10px] font-bold text-gray-500 mt-1 block">أموال وفرتها</span>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* 👑 قائمة المفضلة للزبون */}
+        {userRole !== 'merchant' && userRole !== 'super_admin' && userRole !== 'staff' && favorites.length > 0 && (
+          <div>
+            <h2 className="text-lg font-black text-gray-900 mb-4 flex items-center gap-2 px-2">
+              <Heart size={20} className="text-rose-500 fill-rose-500" /> وجباتي المفضلة
+            </h2>
+            <div className="flex gap-4 overflow-x-auto hide-scrollbar pb-4 snap-x">
+              {favorites.map(meal => (
+                <div key={meal.id} onClick={() => router.push(`/meal/${meal.id}`)} className="cursor-pointer min-w-[200px] bg-white rounded-[30px] overflow-hidden shadow-sm border border-gray-100 relative snap-center group">
+                  <div className="h-28 bg-gray-100 overflow-hidden relative">
+                    <img src={meal.image_url} alt={meal.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+                  </div>
+                  <div className="p-4">
+                    <h3 className="font-black text-sm text-gray-900 truncate mb-1">{meal.name}</h3>
+                    <p className="text-[10px] text-gray-500 font-bold truncate mb-2">{meal.profiles?.shop_name}</p>
+                    <div className="flex justify-between items-end">
+                      <span className="font-black text-emerald-600 text-sm">{meal.discounted_price} <span className="text-[8px]">{meal.currency || 'ل.س'}</span></span>
+                      <span className="text-[9px] text-gray-400 line-through font-bold">{meal.original_price}</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         )}
