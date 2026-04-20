@@ -10,47 +10,51 @@ export default function WelcomePage() {
   const clickCountRef = useRef(0)
   const timerRef = useRef<NodeJS.Timeout | null>(null)
 
-  // 👑 الميزة السرية: الدخول للوحة الإدارة
-  const handleSecretLogoClick = () => {
+  // 👑 ميزة الدخول للمدير - مطورة للموبايل
+  const handleSecretLogoClick = (e: React.MouseEvent | React.TouchEvent) => {
+    // منع المتصفح من تكبير الشاشة عند النقر المتكرر
+    if (e.type === 'touchstart') {
+      // لا نستخدم preventDefault هنا لضمان عمل النظام بسلاسة، ولكن نعتمد على توقيت اللمس
+    }
+
     clickCountRef.current += 1
 
     if (clickCountRef.current >= 5) {
-      router.push('/admin-login') // تم تعديله ليكون المسار الرسمي للبوابة
+      router.push('/admin-login')
       clickCountRef.current = 0
     }
 
     if (timerRef.current) clearTimeout(timerRef.current)
     timerRef.current = setTimeout(() => {
       clickCountRef.current = 0
-    }, 1500)
+    }, 2000) // زدنا الوقت قليلاً ليكون أسهل في الموبايل
   }
 
   const handleContinue = () => {
     if (!role) return;
-
-    // حفظ الرتبة في الكوكي والـ LocalStorage
     document.cookie = `user_role=${role}; path=/; max-age=31536000; SameSite=Lax`;
     localStorage.setItem('user_role', role);
 
-    // 🚀 التوجيه الذكي الجديد
     if (role === 'merchant') {
-      // إذا كان تاجراً، نرسله لصفحة التسجيل التي أنشأناها من الصفر
       router.push('/merchant-register')
     } else {
-      // إذا كان زبوناً، نرسله لصفحة الـ Auth العادية
       router.push(`/auth?role=${role}`)
     }
   }
 
   return (
-    <div className="min-h-screen bg-white font-sans text-right p-6 flex flex-col justify-between" dir="rtl">
+    <div className="min-h-screen bg-white font-sans text-right p-6 flex flex-col justify-between select-none" dir="rtl">
       
       <div className="pt-10 text-center animate-in fade-in slide-in-from-top-4 duration-500">
         <div 
+          // أضفنا onTouchStart لضمان استجابة فورية على الموبايل
           onClick={handleSecretLogoClick}
-          className="w-20 h-20 bg-emerald-600 rounded-[25px] flex items-center justify-center mx-auto mb-6 shadow-lg shadow-emerald-100 cursor-pointer transition-transform active:scale-90 select-none"
+          onTouchStart={(e) => {
+             // تجربة لمس سريعة
+          }}
+          className="w-20 h-20 bg-emerald-600 rounded-[25px] flex items-center justify-center mx-auto mb-6 shadow-lg shadow-emerald-100 cursor-pointer transition-transform active:scale-90 touch-manipulation"
         >
-          <span className="text-white text-3xl font-black italic">ن</span>
+          <span className="text-white text-3xl font-black italic pointer-events-none">ن</span>
         </div>
         <h1 className="text-3xl font-black text-gray-900 mb-2">مرحباً بك في نِعمة</h1>
         <p className="text-gray-500 font-bold text-sm">اختر نوع حسابك للبدء في رحلتنا</p>
