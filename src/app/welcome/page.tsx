@@ -7,19 +7,18 @@ export default function WelcomePage() {
   const router = useRouter()
   const [role, setRole] = useState<'customer' | 'merchant' | null>(null)
   
-  // الذاكرة الصامتة للنقرات السرية (لا تسبب تقطيعاً في الشاشة)
   const clickCountRef = useRef(0)
   const timerRef = useRef<NodeJS.Timeout | null>(null)
 
+  // 👑 الميزة السرية: الدخول للوحة الإدارة
   const handleSecretLogoClick = () => {
     clickCountRef.current += 1
 
     if (clickCountRef.current >= 5) {
-      router.push('/admin') // الانتقال الفوري
+      router.push('/admin-login') // تم تعديله ليكون المسار الرسمي للبوابة
       clickCountRef.current = 0
     }
 
-    // تصفير العداد إذا توقف عن النقر
     if (timerRef.current) clearTimeout(timerRef.current)
     timerRef.current = setTimeout(() => {
       clickCountRef.current = 0
@@ -28,9 +27,19 @@ export default function WelcomePage() {
 
   const handleContinue = () => {
     if (!role) return;
+
+    // حفظ الرتبة في الكوكي والـ LocalStorage
     document.cookie = `user_role=${role}; path=/; max-age=31536000; SameSite=Lax`;
     localStorage.setItem('user_role', role);
-    router.push(`/auth?role=${role}`)
+
+    // 🚀 التوجيه الذكي الجديد
+    if (role === 'merchant') {
+      // إذا كان تاجراً، نرسله لصفحة التسجيل التي أنشأناها من الصفر
+      router.push('/merchant-register')
+    } else {
+      // إذا كان زبوناً، نرسله لصفحة الـ Auth العادية
+      router.push(`/auth?role=${role}`)
+    }
   }
 
   return (
