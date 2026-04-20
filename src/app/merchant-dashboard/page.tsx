@@ -5,7 +5,7 @@ import { createClient } from '@supabase/supabase-js'
 import { 
   PlusCircle, Clock, Camera, ArrowRight, Loader2, ListFilter, 
   Store, Package, TrendingUp, CheckCircle, AlertCircle, 
-  Coins, Calendar, QrCode, Search, ShieldCheck, XCircle 
+  Coins, Calendar, QrCode, Search, ShieldCheck, XCircle, Trash2, ImagePlus 
 } from 'lucide-react'
 import BottomNav from '@/components/BottomNav'
 
@@ -20,14 +20,14 @@ export default function MerchantDashboard() {
   const [merchantName, setMerchantName] = useState('جاري التحميل...')
   const [myMeals, setMyMeals] = useState<any[]>([])
   
-  // تحديث التبويبات لتشمل المسح الضوئي
   const [activeTab, setActiveTab] = useState<'dashboard' | 'add' | 'scan'>('dashboard')
 
-  // حالات إضافة منتج
-  const [imageFile, setImageFile] = useState<File | null>(null)
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  // حالات إضافة منتج (محدثة لدعم الصور المتعددة والوصف)
+  const [imageFiles, setImageFiles] = useState<File[]>([])
+  const [previewUrls, setPreviewUrls] = useState<string[]>([])
   const [product, setProduct] = useState({
     title: '',
+    description: '', // 👑 الميزة الجديدة: الوصف والملاحظات
     category: 'مطاعم',
     currency: 'ل.س',
     originalPrice: '',
@@ -39,7 +39,7 @@ export default function MerchantDashboard() {
     endTime: '21:00'
   })
 
-  // حالات تحقق من التذكرة (الميزة الجديدة)
+  // حالات تحقق من التذكرة
   const [ticketInput, setTicketInput] = useState('')
   const [verifying, setVerifying] = useState(false)
   const [scanResult, setScanResult] = useState<any>(null)
@@ -78,14 +78,9 @@ export default function MerchantDashboard() {
 
     try {
       const { data: { user } } = await supabase.auth.getUser()
-      
-      // البحث عن التذكرة والتأكد أنها تابعة لهذا التاجر حصراً
       const { data: order, error } = await supabase
         .from('orders')
-        .select(`
-          *,
-          meals (name, image_url)
-        `)
+        .select(`*, meals (name, image_url)`)
         .eq('ticket_code', ticketInput.toUpperCase())
         .eq('merchant_id', user?.id)
         .single()
@@ -106,13 +101,8 @@ export default function MerchantDashboard() {
   const handleRedeemTicket = async (orderId: string) => {
     setLoading(true)
     try {
-      const { error } = await supabase
-        .from('orders')
-        .update({ status: 'used' })
-        .eq('id', orderId)
-
+      const { error } = await supabase.from('orders').update({ status: 'used' }).eq('id', orderId)
       if (error) throw error
-      
       alert('✅ تم تأكيد الاستلام بنجاح! شكراً لمساهمتك في تقليل الهدر.')
       setScanResult(null)
       setTicketInput('')
@@ -124,29 +114,58 @@ export default function MerchantDashboard() {
     }
   }
 
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0]
-      setImageFile(file)
-      setPreviewUrl(URL.createObjectURL(file))
+  // 👑 الميزة الجديدة: دالة حذف العرض
+  const handleDeleteMeal = async (mealId: number) => {
+    if (!window.confirm('هل أنت متأكد أنك تريد حذف هذا العرض نهائياً؟ 🗑️')) return
+    
+    setLoading(true)
+    try {
+      const { error } = await supabase.from('meals').delete().eq('id', mealId)
+      if (error) throw error
+      alert('تم حذف العرض بنجاح ✅')
+      fetchMerchantData()
+    } catch (err: any) {
+      alert('خطأ أثناء الحذف: ' + err.message)
+    } finally {
+      setLoading(false)
     }
   }
 
+  // 👑 الميزة الجديدة: اختيار عدة صور
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const filesArray = Array.from(e.target.files)
+      setImageFiles(filesArray)
+      
+      const urls = filesArray.map(file => URL.createObjectURL(file))
+      setPreviewUrls(urls)
+    }
+  }
+
+  // 👑 الميزة الجديدة: حفظ عدة صور مع الوصف
   const handleSubmitMeal = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!imageFile) return alert("يرجى التقاط أو رفع صورة للمنتج 📸")
+    if (imageFiles.length === 0) return alert("يرجى التقاط أو رفع صورة واحدة على الأقل للمنتج 📸")
     setLoading(true)
 
     try {
       const { data: { user } } = await supabase.auth.getUser()
-      const fileExt = imageFile.name.split('.').pop()
-      const fileName = `${user?.id}/${Math.random()}.${fileExt}`
-      await supabase.storage.from('product-images').upload(fileName, imageFile)
-      const { data: { publicUrl } } = supabase.storage.from('product-images').getPublicUrl(fileName)
+      const uploadedUrls: string[] = []
 
+      // رفع الصور واحدة تلو الأخرى
+      for (const file of imageFiles) {
+        const fileExt = file.name.split('.').pop()
+        const fileName = `${user?.id}/${Math.random()}.${fileExt}`
+        await supabase.storage.from('product-images').upload(fileName, file)
+        const { data: { publicUrl } } = supabase.storage.from('product-images').getPublicUrl(fileName)
+        uploadedUrls.push(publicUrl)
+      }
+
+      // حفظ الوجبة في قاعدة البيانات مع قائمة الصور والوصف
       const { error } = await supabase.from('meals').insert([{
         merchant_id: user?.id,
         name: product.title,
+        description: product.description, // حفظ الملاحظات
         category: product.category,
         currency: product.currency,
         original_price: parseFloat(product.originalPrice),
@@ -155,12 +174,18 @@ export default function MerchantDashboard() {
         start_date: product.startDate,
         end_date: product.endDate,
         pickup_time: `من ${product.startTime} إلى ${product.endTime}`,
-        image_url: publicUrl,
+        image_url: uploadedUrls[0], // الصورة الرئيسية
+        images_gallery: uploadedUrls, // معرض الصور المتعددة
         is_approved: false 
       }])
 
       if (error) throw error
       alert('✅ تم إرسال العرض للإدارة بنجاح!')
+      
+      // إعادة تعيين الفورم
+      setProduct({ ...product, title: '', description: '', originalPrice: '', discountedPrice: '' })
+      setImageFiles([])
+      setPreviewUrls([])
       setActiveTab('dashboard')
       fetchMerchantData()
     } catch (error: any) {
@@ -199,7 +224,6 @@ export default function MerchantDashboard() {
           </div>
         </div>
 
-        {/* أزرار التبويبات الثلاثة */}
         <div className="flex bg-black/20 p-1 rounded-2xl mt-4 backdrop-blur-sm">
           <button onClick={() => setActiveTab('dashboard')} className={`flex-1 py-2.5 text-[10px] font-black rounded-xl transition-all ${activeTab === 'dashboard' ? 'bg-white text-emerald-900 shadow-md scale-100' : 'text-emerald-100'}`}>الإحصائيات</button>
           <button onClick={() => setActiveTab('scan')} className={`flex-1 py-2.5 text-[10px] font-black rounded-xl transition-all ${activeTab === 'scan' ? 'bg-white text-emerald-900 shadow-md scale-100' : 'text-emerald-100'}`}>مسح تذكرة 🎫</button>
@@ -233,16 +257,24 @@ export default function MerchantDashboard() {
               <div className="text-center bg-white p-12 rounded-[35px] border border-gray-100 text-gray-400 font-bold">لا توجد عروض.</div>
             ) : (
               myMeals.map(meal => (
-                <div key={meal.id} className="bg-white p-4 rounded-[30px] shadow-sm border border-gray-100 flex gap-4 items-center group">
+                <div key={meal.id} className="bg-white p-4 rounded-[30px] shadow-sm border border-gray-100 flex gap-4 items-center group relative">
+                  
+                  {/* 👑 زر الحذف */}
+                  <button 
+                    onClick={() => handleDeleteMeal(meal.id)}
+                    disabled={loading}
+                    className="absolute top-4 left-4 p-2 bg-rose-50 text-rose-500 rounded-xl hover:bg-rose-500 hover:text-white transition-colors active:scale-90"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+
                   <div className="w-16 h-16 rounded-2xl overflow-hidden bg-gray-50 border border-gray-100">
                     <img src={meal.image_url} alt={meal.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform" />
                   </div>
-                  <div className="flex-1">
-                    <h3 className="font-black text-sm text-gray-900">{meal.name}</h3>
+                  <div className="flex-1 pl-8">
+                    <h3 className="font-black text-sm text-gray-900 line-clamp-1">{meal.name}</h3>
                     <p className="text-[10px] font-bold text-emerald-600 mt-1">{meal.discounted_price} {meal.currency || 'ل.س'}</p>
-                  </div>
-                  <div className="text-left">
-                    <span className={`text-[8px] font-black px-2 py-1 rounded-lg ${meal.is_approved ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}`}>
+                    <span className={`inline-block mt-2 text-[8px] font-black px-2 py-1 rounded-lg ${meal.is_approved ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}`}>
                       {meal.is_approved ? 'منشور ✅' : 'تدقيق ⏳'}
                     </span>
                   </div>
@@ -253,7 +285,7 @@ export default function MerchantDashboard() {
         </div>
       )}
 
-      {/* 2. تبويب مسح التذاكر (Verify Ticket) */}
+      {/* 2. تبويب مسح التذاكر */}
       {activeTab === 'scan' && (
         <div className="px-6 space-y-6 animate-in zoom-in-95">
           <div className="bg-white p-6 rounded-[35px] shadow-sm border border-gray-100 text-center">
@@ -261,8 +293,7 @@ export default function MerchantDashboard() {
               <QrCode size={32} />
             </div>
             <h2 className="text-lg font-black text-gray-900 mb-2">تسليم الوجبات</h2>
-            <p className="text-xs text-gray-500 font-bold mb-6">أدخل كود التذكرة الخاص بالزبون للتحقق منه</p>
-
+            <p className="text-xs text-gray-500 font-bold mb-6">أدخل كود التذكرة للتحقق والتسليم</p>
             <div className="relative">
               <input 
                 type="text" 
@@ -280,8 +311,6 @@ export default function MerchantDashboard() {
               </button>
             </div>
           </div>
-
-          {/* نتيجة البحث */}
           {scanResult && (
             <div className="animate-in slide-in-from-top-4">
               {scanResult.error ? (
@@ -301,7 +330,6 @@ export default function MerchantDashboard() {
                       <p className="text-[10px] font-bold text-gray-400 mt-1">{scanResult.customer_email}</p>
                     </div>
                   </div>
-
                   <div className="space-y-4">
                     <div className="flex justify-between items-center text-sm">
                       <span className="font-bold text-gray-400">حالة التذكرة:</span>
@@ -309,13 +337,8 @@ export default function MerchantDashboard() {
                         {scanResult.status === 'active' ? 'جاهزة للتسليم' : 'تم استخدامها مسبقاً! 🛑'}
                       </span>
                     </div>
-
                     {scanResult.status === 'active' ? (
-                      <button 
-                        onClick={() => handleRedeemTicket(scanResult.id)}
-                        disabled={loading}
-                        className="w-full bg-emerald-600 text-white py-4 rounded-2xl font-black flex justify-center items-center gap-2 shadow-lg shadow-emerald-100"
-                      >
+                      <button onClick={() => handleRedeemTicket(scanResult.id)} disabled={loading} className="w-full bg-emerald-600 text-white py-4 rounded-2xl font-black flex justify-center items-center gap-2 shadow-lg shadow-emerald-100">
                         {loading ? <Loader2 className="animate-spin" /> : <><ShieldCheck size={20}/> تأكيد تسليم الوجبة الآن</>}
                       </button>
                     ) : (
@@ -331,18 +354,24 @@ export default function MerchantDashboard() {
         </div>
       )}
 
-      {/* 3. تبويب إضافة وجبة (Add Meal) */}
+      {/* 3. تبويب إضافة وجبة (دعم صور متعددة ووصف) */}
       {activeTab === 'add' && (
         <form onSubmit={handleSubmitMeal} className="px-6 space-y-6 animate-in slide-in-from-left-4">
+          
           <div className="relative group">
-            <input type="file" accept="image/*" onChange={handleImageChange} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
-            <div className="bg-white p-6 rounded-[35px] border-2 border-dashed border-emerald-100 flex flex-col items-center justify-center gap-2 min-h-[180px] overflow-hidden hover:bg-emerald-50 transition-all shadow-sm">
-              {previewUrl ? (
-                <img src={previewUrl} className="w-full h-40 object-cover rounded-2xl" alt="Preview" />
+            <input type="file" accept="image/*" multiple onChange={handleImageChange} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
+            <div className="bg-white p-6 rounded-[35px] border-2 border-dashed border-emerald-200 flex flex-col items-center justify-center gap-3 min-h-[180px] overflow-hidden hover:bg-emerald-50 transition-all shadow-sm">
+              {previewUrls.length > 0 ? (
+                <div className="grid grid-cols-3 gap-2 w-full">
+                  {previewUrls.map((url, index) => (
+                    <img key={index} src={url} className="w-full h-24 object-cover rounded-2xl shadow-sm border border-gray-100" alt={`Preview ${index}`} />
+                  ))}
+                </div>
               ) : (
                 <>
-                  <div className="bg-emerald-100 p-4 rounded-full text-emerald-600"><Camera size={32} /></div>
-                  <span className="font-black text-sm text-gray-700">التقط صورة للوجبة</span>
+                  <div className="bg-emerald-100 p-4 rounded-full text-emerald-600"><ImagePlus size={32} /></div>
+                  <span className="font-black text-sm text-gray-700">اضغط لرفع صورة أو أكثر للمنتج</span>
+                  <span className="text-[10px] text-gray-400 font-bold">يمكنك تحديد عدة صور معاً</span>
                 </>
               )}
             </div>
@@ -350,6 +379,14 @@ export default function MerchantDashboard() {
 
           <div className="space-y-4">
             <input type="text" required value={product.title} placeholder="اسم الوجبة (مثلاً: مشاوي مشكل)" className="w-full bg-white border-2 border-gray-100 rounded-2xl p-5 text-gray-900 font-black focus:border-emerald-600 outline-none" onChange={(e) => setProduct({...product, title: e.target.value})} />
+            
+            {/* 👑 الميزة الجديدة: مربع الوصف والملاحظات */}
+            <textarea 
+              value={product.description} 
+              placeholder="اكتب ملاحظات أو مواصفات المنتج هنا (مثال: يكفي 3 أشخاص، يحتوي على مكسرات...)" 
+              className="w-full bg-white border-2 border-gray-100 rounded-2xl p-5 text-gray-900 font-bold text-sm focus:border-emerald-600 outline-none resize-none h-28" 
+              onChange={(e) => setProduct({...product, description: e.target.value})} 
+            />
             
             <div className="grid grid-cols-2 gap-4">
               <select required value={product.category} onChange={(e) => setProduct({...product, category: e.target.value})} className="bg-white border-2 border-gray-100 rounded-2xl p-5 text-gray-900 font-black outline-none appearance-none">
@@ -365,7 +402,7 @@ export default function MerchantDashboard() {
           </div>
 
           <button type="submit" disabled={loading} className="w-full bg-emerald-700 text-white py-5 rounded-[25px] font-black text-lg flex justify-center items-center gap-2 shadow-xl active:scale-95 transition-all">
-            {loading ? <Loader2 className="animate-spin" /> : 'نشر الوجبة الآن 🚀'}
+            {loading ? <Loader2 className="animate-spin" /> : 'نشر العرض الآن 🚀'}
           </button>
         </form>
       )}

@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react'
 import { createClient } from '@supabase/supabase-js'
 import { useParams, useRouter } from 'next/navigation'
-import { ArrowRight, Star, Clock, Calendar, Store, Plus, Loader2, MessageSquare, ShieldCheck, Heart, Share2, Info, ShoppingBag } from 'lucide-react'
+import { ArrowRight, Star, Clock, Calendar, Store, Loader2, MessageSquare, ShieldCheck, Heart, Share2, Info, ShoppingBag, ChevronRight, ChevronLeft } from 'lucide-react'
 import { useCart } from '../../context/CartContext'
 
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
@@ -18,6 +18,9 @@ export default function MealDetailsPage() {
   const [isFavorite, setIsFavorite] = useState(false)
   const [user, setUser] = useState<any>(null)
 
+  // 👑 حالة السلايدر (التنقل بين الصور)
+  const [currentImageIndex, setCurrentImageIndex] = useState(0)
+
   useEffect(() => {
     if (params.id) {
       fetchMealDetails()
@@ -25,41 +28,21 @@ export default function MealDetailsPage() {
     }
   }, [params.id])
 
-  // التحقق مما إذا كان الزبون مسجلاً وما إذا كانت الوجبة في مفضلته
   const checkUserAndFavoriteStatus = async () => {
     const { data: { user } } = await supabase.auth.getUser()
     if (user) {
       setUser(user)
-      const { data } = await supabase
-        .from('favorites')
-        .select('meal_id')
-        .eq('user_id', user.id)
-        .eq('meal_id', params.id)
-        .single()
-      
+      const { data } = await supabase.from('favorites').select('meal_id').eq('user_id', user.id).eq('meal_id', params.id).single()
       if (data) setIsFavorite(true)
     }
   }
 
   const fetchMealDetails = async () => {
     setLoading(true)
-    
-    // 1. جلب تفاصيل الوجبة مع اسم التاجر
-    const { data: mealData } = await supabase
-      .from('meals')
-      .select('*, profiles:merchant_id(shop_name)')
-      .eq('id', params.id)
-      .single()
-
+    const { data: mealData } = await supabase.from('meals').select('*, profiles:merchant_id(shop_name)').eq('id', params.id).single()
     if (mealData) setMeal(mealData)
 
-    // 2. جلب تقييمات هذه الوجبة مع اسم الزبون الذي قيمها
-    const { data: reviewsData } = await supabase
-      .from('reviews')
-      .select('*, profiles:user_id(full_name)')
-      .eq('meal_id', params.id)
-      .order('created_at', { ascending: false })
-
+    const { data: reviewsData } = await supabase.from('reviews').select('*, profiles:user_id(full_name)').eq('meal_id', params.id).order('created_at', { ascending: false })
     if (reviewsData) setReviews(reviewsData)
     
     setLoading(false)
@@ -78,7 +61,6 @@ export default function MealDetailsPage() {
     alert('🛒 تمت إضافة الوجبة إلى سلتك بنجاح!')
   }
 
-  // دالة الإضافة والإزالة من المفضلة (متصلة بقاعدة البيانات)
   const handleToggleFavorite = async () => {
     if (!user) {
       alert('يرجى تسجيل الدخول كزبون للاحتفاظ بالوجبات في مفضلتك ❤️')
@@ -87,8 +69,7 @@ export default function MealDetailsPage() {
     }
 
     const newFavStatus = !isFavorite
-    setIsFavorite(newFavStatus) // تحديث فوري للواجهة
-
+    setIsFavorite(newFavStatus)
     try {
       if (newFavStatus) {
         await supabase.from('favorites').insert([{ user_id: user.id, meal_id: params.id }])
@@ -96,12 +77,18 @@ export default function MealDetailsPage() {
         await supabase.from('favorites').delete().eq('user_id', user.id).eq('meal_id', params.id)
       }
     } catch (error) {
-      console.error("Error toggling favorite")
-      setIsFavorite(!newFavStatus) // التراجع في حال الفشل
+      setIsFavorite(!newFavStatus) 
     }
   }
 
-  // حساب الإحصائيات للتقييمات
+  // 👑 مصفوفة الصور للسلايدر
+  const images = meal?.images_gallery && meal.images_gallery.length > 0 
+    ? meal.images_gallery 
+    : [meal?.image_url]
+
+  const nextImage = () => setCurrentImageIndex((prev) => (prev + 1) % images.length)
+  const prevImage = () => setCurrentImageIndex((prev) => (prev - 1 + images.length) % images.length)
+
   const totalReviews = reviews.length
   const avgTotal = totalReviews > 0 ? (reviews.reduce((a, b) => a + (b.rating || 5), 0) / totalReviews).toFixed(1) : 'جديد'
   const avgQuality = totalReviews > 0 ? (reviews.reduce((a, b) => a + (b.quality_rating || 5), 0) / totalReviews).toFixed(1) : 5
@@ -119,17 +106,36 @@ export default function MealDetailsPage() {
   )
 
   if (loading) return <div className="min-h-screen bg-gray-50 flex justify-center items-center"><Loader2 className="animate-spin text-emerald-600 w-12 h-12"/></div>
-  
   if (!meal) return <div className="min-h-screen flex justify-center items-center text-gray-500 font-black">عذراً، هذا العرض غير متوفر أو تم حذفه ❌</div>
 
   return (
     <div className="min-h-screen bg-gray-50 pb-32 text-right font-sans" dir="rtl">
       
-      {/* قسم الصورة العلوية مع الأزرار العائمة */}
-      <div className="relative h-80 bg-gray-200">
-        <img src={meal.image_url} alt={meal.name} className="w-full h-full object-cover" />
+      {/* 👑 قسم السلايدر المتطور للصور */}
+      <div className="relative h-[350px] bg-gray-200 overflow-hidden group">
+        <img 
+          src={images[currentImageIndex]} 
+          alt={meal.name} 
+          className="w-full h-full object-cover transition-transform duration-700" 
+          key={currentImageIndex} // لإعطاء تأثير انتقال لطيف
+        />
         <div className="absolute inset-0 bg-gradient-to-t from-slate-900/90 via-slate-900/20 to-transparent"></div>
         
+        {/* أزرار التنقل بين الصور */}
+        {images.length > 1 && (
+          <>
+            <button onClick={prevImage} className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/30 backdrop-blur-md p-2 rounded-full text-white hover:bg-white/50 transition-colors"><ChevronLeft size={24} /></button>
+            <button onClick={nextImage} className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/30 backdrop-blur-md p-2 rounded-full text-white hover:bg-white/50 transition-colors"><ChevronRight size={24} /></button>
+            
+            {/* نقاط السلايدر */}
+            <div className="absolute bottom-28 left-0 right-0 flex justify-center gap-2 z-20">
+            {images.map((_: any, idx: number) => (
+                <div key={idx} className={`h-1.5 rounded-full transition-all ${idx === currentImageIndex ? 'w-6 bg-emerald-400' : 'w-1.5 bg-white/50'}`}></div>
+              ))}
+            </div>
+          </>
+        )}
+
         <div className="absolute top-12 left-6 right-6 flex justify-between items-center z-10">
           <button onClick={() => router.back()} className="bg-white/20 backdrop-blur-md p-3 rounded-2xl text-white active:scale-95 transition-all hover:bg-white/30"><ArrowRight size={22} /></button>
           <div className="flex gap-3">
@@ -140,7 +146,6 @@ export default function MealDetailsPage() {
           </div>
         </div>
 
-        {/* شارة الخصم واسم الوجبة */}
         <div className="absolute bottom-8 right-6 z-10">
           <span className="bg-rose-500 text-white px-3 py-1.5 rounded-xl text-[10px] font-black shadow-lg shadow-rose-500/30 inline-block mb-3 uppercase tracking-wider">
             وفر {meal.original_price > 0 ? Math.round(((meal.original_price - meal.discounted_price) / meal.original_price) * 100) : 0}%
@@ -151,7 +156,6 @@ export default function MealDetailsPage() {
 
       <div className="px-6 -mt-4 relative z-20 space-y-6">
         
-        {/* بطاقة السعر والتاجر */}
         <div className="bg-white p-6 rounded-[35px] shadow-xl shadow-gray-200/50 border border-gray-100 flex justify-between items-center">
           <div>
             <p className="text-sm font-bold text-gray-500 mb-1 flex items-center gap-1.5 bg-gray-50 px-2 py-1 rounded-lg w-fit">
@@ -168,7 +172,6 @@ export default function MealDetailsPage() {
           </div>
         </div>
 
-        {/* معلومات الاستلام (تم تحسين تصميمها) */}
         <div className="bg-white p-6 rounded-[35px] shadow-sm border border-gray-100 grid grid-cols-2 gap-4">
           <div className="flex flex-col items-start gap-2 bg-orange-50/50 p-4 rounded-3xl border border-orange-100/50">
             <div className="bg-orange-100 p-2.5 rounded-2xl text-orange-600"><Calendar size={20}/></div>
@@ -186,15 +189,15 @@ export default function MealDetailsPage() {
           </div>
         </div>
 
-        {/* وصف الوجبة (إضافة مفيدة إذا كان التاجر قد كتب وصفاً) */}
+        {/* 👑 عرض ملاحظات التاجر إن وجدت */}
         {meal.description && (
-          <div className="bg-white p-6 rounded-[35px] shadow-sm border border-gray-100">
-            <h3 className="font-black text-gray-900 mb-3 flex items-center gap-2"><Info size={18} className="text-emerald-500"/> تفاصيل العرض</h3>
-            <p className="text-sm text-gray-600 font-bold leading-relaxed">{meal.description}</p>
+          <div className="bg-white p-6 rounded-[35px] shadow-sm border border-emerald-100/50 relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-16 h-16 bg-emerald-50 rounded-bl-[40px] -z-10"></div>
+            <h3 className="font-black text-gray-900 mb-3 flex items-center gap-2"><Info size={18} className="text-emerald-500"/> ملاحظات وتفاصيل</h3>
+            <p className="text-sm text-gray-600 font-bold leading-relaxed whitespace-pre-line">{meal.description}</p>
           </div>
         )}
 
-        {/* ================= قسم التقييمات المفصلة ================= */}
         <div className="bg-white p-6 rounded-[35px] shadow-sm border border-gray-100 mb-10">
           <h3 className="font-black text-gray-900 mb-6 flex items-center gap-2"><ShieldCheck className="text-emerald-500"/> تجارب الزبائن</h3>
           
@@ -205,14 +208,12 @@ export default function MealDetailsPage() {
             </div>
           ) : (
             <>
-              {/* ملخص العوامل الثلاثة */}
               <div className="mb-8 bg-gray-50 p-6 rounded-3xl border border-gray-100">
                 <RatingBar label="الجودة والطعم" value={Number(avgQuality)} />
                 <RatingBar label="جودة الخدمة" value={Number(avgService)} />
                 <RatingBar label="النظافة" value={Number(avgClean)} />
               </div>
 
-              {/* قائمة التعليقات */}
               <div className="space-y-5">
                 {reviews.map((rev, index) => (
                   <div key={index} className="border-b border-gray-100 pb-5 last:border-0 last:pb-0">
@@ -245,7 +246,6 @@ export default function MealDetailsPage() {
 
       </div>
 
-      {/* الشريط السفلي العائم (إضافة للسلة) */}
       <div className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-2xl p-6 rounded-t-[40px] shadow-[0_-20px_40px_rgba(0,0,0,0.08)] border-t border-gray-100 z-50">
         <div className="flex items-center gap-4 max-w-md mx-auto">
           <div className="bg-gray-50 p-3.5 rounded-[20px] text-center min-w-[75px] border border-gray-200">
