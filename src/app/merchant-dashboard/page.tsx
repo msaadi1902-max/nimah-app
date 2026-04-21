@@ -5,7 +5,7 @@ import { createClient } from '@supabase/supabase-js'
 import { 
   Clock, ArrowRight, Loader2, Store, TrendingUp, CheckCircle, 
   AlertCircle, QrCode, Search, ShieldCheck, XCircle, Trash2, 
-  ImagePlus, Crown, Megaphone, Lock
+  ImagePlus, Crown, Megaphone, Lock, PackageX
 } from 'lucide-react'
 import BottomNav from '@/components/BottomNav'
 
@@ -170,7 +170,7 @@ export default function MerchantDashboard() {
     }
   }
 
-  // === إضافة العرض ===
+  // === إضافة العرض (تعديل النشر التلقائي) ===
   const handleSubmitMeal = async (e: React.FormEvent) => {
     e.preventDefault()
     if (merchantStatus !== 'active') return alert("حسابك قيد المراجعة، لا يمكنك النشر حالياً ⏳");
@@ -204,13 +204,13 @@ export default function MerchantDashboard() {
         pickup_time: `من ${product.startTime} إلى ${product.endTime}`,
         image_url: uploadedUrls[0],
         images_gallery: uploadedUrls,
-        is_approved: false // يحتاج موافقة الموظفين أولاً
+        is_approved: true // 👑 النشر التلقائي والفوري يعمل الآن (لا يحتاج موافقة الموظفين)
       }])
 
       if (error) throw error
-      alert('✅ تم إرسال العرض بنجاح! سيظهر للزبائن فور موافقة الإدارة.')
+      alert('✅ تم النشر بنجاح! عرضك متاح الآن للزبائن في السوق المباشر.')
       
-      setProduct({ ...product, title: '', description: '', originalPrice: '', discountedPrice: '' })
+      setProduct({ ...product, title: '', description: '', originalPrice: '', discountedPrice: '', quantity: '1' })
       setImageFiles([])
       setPreviewUrls([])
       setActiveTab('dashboard')
@@ -222,8 +222,9 @@ export default function MerchantDashboard() {
     }
   }
 
-  const activeMealsCount = myMeals.filter(m => m.is_approved && m.quantity > 0).length
-  const pendingMealsCount = myMeals.filter(m => !m.is_approved).length
+  // 👑 إحصائيات متقدمة تعتمد على المخزون (بما أن النشر تلقائي)
+  const activeMealsCount = myMeals.filter(m => m.quantity > 0).length
+  const outOfStockCount = myMeals.filter(m => m.quantity <= 0).length
 
   if (dataLoading) return <div className="min-h-screen bg-slate-50 flex justify-center items-center"><Loader2 className="animate-spin text-emerald-600 w-12 h-12"/></div>
 
@@ -253,7 +254,7 @@ export default function MerchantDashboard() {
                 {merchantStatus === 'active' ? (
                   <span className="text-[10px] bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-md font-bold flex items-center gap-1"><CheckCircle size={10}/> موثق ومفعل</span>
                 ) : (
-                  <span className="text-[10px] bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded-md font-bold flex items-center gap-1"><Clock size={10}/> قيد المراجعة</span>
+                  <span className="text-[10px] bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded-md font-bold flex items-center gap-1"><Clock size={10}/> قيد المراجعة الإدارية</span>
                 )}
               </div>
             </div>
@@ -279,10 +280,10 @@ export default function MerchantDashboard() {
               </div>
             </div>
             <div className="bg-white p-5 rounded-[25px] shadow-sm border border-slate-100 flex items-center gap-4">
-              <div className="bg-amber-50 p-3 rounded-2xl text-amber-500"><Clock size={24}/></div>
+              <div className="bg-rose-50 p-3 rounded-2xl text-rose-500"><PackageX size={24}/></div>
               <div>
-                <p className="text-[10px] text-slate-400 font-black uppercase">بانتظار الإدارة</p>
-                <p className="text-2xl font-black text-slate-900">{pendingMealsCount}</p>
+                <p className="text-[10px] text-slate-400 font-black uppercase">نفدت الكمية</p>
+                <p className="text-2xl font-black text-slate-900">{outOfStockCount}</p>
               </div>
             </div>
           </div>
@@ -293,7 +294,7 @@ export default function MerchantDashboard() {
               <div className="text-center bg-white p-12 rounded-[35px] border border-slate-100 text-slate-400 font-bold">لا توجد عروض حالياً. ابدأ بإضافة أول عرض لك!</div>
             ) : (
               myMeals.map(meal => (
-                <div key={meal.id} className="bg-white p-4 rounded-[30px] shadow-sm border border-slate-100 flex gap-4 items-center group relative overflow-hidden">
+                <div key={meal.id} className={`bg-white p-4 rounded-[30px] shadow-sm border ${meal.quantity === 0 ? 'border-rose-100 opacity-75' : 'border-slate-100'} flex gap-4 items-center group relative overflow-hidden`}>
                   
                   {/* زر الحذف */}
                   <button 
@@ -304,7 +305,7 @@ export default function MerchantDashboard() {
                   </button>
 
                   {/* زر الترويج (VIP) */}
-                  {meal.is_approved && !meal.is_sponsored && (
+                  {!meal.is_sponsored && meal.quantity > 0 && (
                     <button 
                       onClick={() => handlePromoteMeal(meal.id)}
                       className="absolute bottom-4 left-4 p-2 bg-amber-50 text-amber-600 rounded-xl hover:bg-amber-500 hover:text-white transition-colors active:scale-90 z-10 flex items-center gap-1 font-black text-[10px]"
@@ -315,7 +316,7 @@ export default function MerchantDashboard() {
                   )}
 
                   <div className="w-20 h-20 rounded-2xl overflow-hidden bg-slate-50 border border-slate-100 flex-shrink-0 relative">
-                    <img src={meal.image_url} alt={meal.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+                    <img src={meal.image_url} alt={meal.name} className={`w-full h-full object-cover transition-transform duration-500 ${meal.quantity === 0 ? 'grayscale' : 'group-hover:scale-110'}`} />
                     {meal.is_sponsored && (
                       <div className="absolute inset-x-0 bottom-0 bg-amber-500 text-slate-900 text-[8px] font-black text-center py-1 flex justify-center items-center gap-1">
                         <Crown size={10}/> ممول
@@ -327,8 +328,8 @@ export default function MerchantDashboard() {
                     <h3 className="font-black text-sm text-slate-900 line-clamp-1">{meal.name}</h3>
                     <p className="text-[11px] font-black text-emerald-600 mt-1 bg-emerald-50 inline-block px-2 py-0.5 rounded-md">{meal.discounted_price} {meal.currency || 'ل.س'}</p>
                     <div className="mt-2 flex items-center gap-2">
-                      <span className={`text-[9px] font-black px-2 py-1 rounded-lg ${meal.is_approved ? 'bg-slate-100 text-slate-600' : 'bg-amber-50 text-amber-600'}`}>
-                        {meal.is_approved ? 'معروض للبيع' : 'قيد التدقيق ⏳'}
+                      <span className={`text-[9px] font-black px-2 py-1 rounded-lg ${meal.quantity > 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
+                        {meal.quantity > 0 ? `الكمية المتوفرة: ${meal.quantity}` : 'نفدت الكمية ⚠️'}
                       </span>
                     </div>
                   </div>
@@ -342,7 +343,6 @@ export default function MerchantDashboard() {
       {/* 2. تبويب مسح التذاكر (Scan) - بقي كما هو لقوته */}
       {activeTab === 'scan' && (
         <div className="px-6 space-y-6 animate-in zoom-in-95">
-          {/* ... (نفس كود التبويب السابق الخاص بمسح التذاكر - يمكنك الاحتفاظ به كما هو في كودك) ... */}
            <div className="bg-white p-6 rounded-[35px] shadow-sm border border-gray-100 text-center">
             <div className="w-16 h-16 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-4">
               <QrCode size={32} />
@@ -375,7 +375,6 @@ export default function MerchantDashboard() {
                 </div>
               ) : (
                 <div className="bg-white border-2 border-emerald-100 p-6 rounded-[35px] shadow-xl">
-                  {/* ... تفاصيل التذكرة ... */}
                   <div className="flex items-center gap-4 mb-6 pb-6 border-b border-gray-100">
                     <div className="w-20 h-20 bg-gray-50 rounded-2xl overflow-hidden shrink-0 border border-emerald-100">
                       <img src={scanResult.meals?.image_url} className="w-full h-full object-cover" />
@@ -414,7 +413,7 @@ export default function MerchantDashboard() {
       {activeTab === 'add' && (
         <div className="px-6 animate-in slide-in-from-left-4">
           
-          {/* 🛡️ قفل النشر للتجار الجدد */}
+          {/* 🛡️ قفل النشر للتجار الجدد (لم يتم حذف هذه الميزة) */}
           {merchantStatus !== 'active' ? (
             <div className="bg-white p-8 rounded-[35px] border border-slate-100 text-center shadow-sm flex flex-col items-center mt-10">
               <div className="w-20 h-20 bg-amber-50 rounded-full flex items-center justify-center text-amber-500 mb-6">
@@ -473,17 +472,24 @@ export default function MerchantDashboard() {
                 <div className="flex gap-4">
                   <div className="flex-1">
                     <label className="text-[10px] font-black text-slate-400 mb-1 block">السعر الأساسي</label>
-                    <input type="number" required placeholder="0.00" className="w-full bg-slate-50 border-2 border-transparent rounded-2xl p-4 text-slate-400 font-black text-center line-through focus:border-emerald-500 transition-all" onChange={(e) => setProduct({...product, originalPrice: e.target.value})} />
+                    <input type="number" required placeholder="0.00" className="w-full bg-slate-50 border-2 border-transparent rounded-2xl p-4 text-slate-400 font-black text-center line-through focus:border-emerald-500 transition-all" value={product.originalPrice} onChange={(e) => setProduct({...product, originalPrice: e.target.value})} />
                   </div>
                   <div className="flex-1">
                     <label className="text-[10px] font-black text-emerald-600 mb-1 block">سعر التخفيض (نِعمة)</label>
-                    <input type="number" required placeholder="0.00" className="w-full bg-emerald-50 border-2 border-emerald-200 rounded-2xl p-4 text-emerald-900 font-black text-center focus:border-emerald-500 transition-all" onChange={(e) => setProduct({...product, discountedPrice: e.target.value})} />
+                    <input type="number" required placeholder="0.00" className="w-full bg-emerald-50 border-2 border-emerald-200 rounded-2xl p-4 text-emerald-900 font-black text-center focus:border-emerald-500 transition-all" value={product.discountedPrice} onChange={(e) => setProduct({...product, discountedPrice: e.target.value})} />
                   </div>
                 </div>
+
+                {/* 👑 حقل الكمية الذي كان مفقوداً في واجهة المستخدم */}
+                <div className="mt-2">
+                  <label className="text-[10px] font-black text-slate-400 mb-1 block">الكمية المتوفرة للبيع (المخزون)</label>
+                  <input type="number" required min="1" placeholder="أدخل الكمية المتوفرة..." className="w-full bg-slate-50 border-2 border-transparent rounded-2xl p-4 text-slate-900 font-black text-center focus:border-emerald-500 transition-all" value={product.quantity} onChange={(e) => setProduct({...product, quantity: e.target.value})} />
+                </div>
+
               </div>
 
               <button type="submit" disabled={loading} className="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-5 rounded-[25px] font-black text-lg flex justify-center items-center gap-2 shadow-[0_10px_20px_rgba(16,185,129,0.2)] active:scale-95 transition-all disabled:opacity-50">
-                {loading ? <Loader2 className="animate-spin" /> : 'إطلاق العرض 🚀'}
+                {loading ? <Loader2 className="animate-spin" /> : 'نشر العرض في السوق 🚀'}
               </button>
             </form>
           )}
