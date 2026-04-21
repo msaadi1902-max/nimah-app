@@ -2,7 +2,7 @@
 import React, { useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@supabase/supabase-js'
-import { Mail, Lock, ArrowRight, Loader2, ShieldCheck, User, MapPin, KeyRound, AlertCircle } from 'lucide-react'
+import { Mail, Lock, ArrowRight, Loader2, ShieldCheck, User, KeyRound, AlertCircle } from 'lucide-react'
 
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
 
@@ -13,27 +13,24 @@ function AuthContent() {
   
   const [view, setView] = useState<'login' | 'signup' | 'verify' | 'forgot' | 'reset'>('login')
   const [loading, setLoading] = useState(false)
-  const [errorMsg, setErrorMsg] = useState('') // نظام عرض أخطاء احترافي
+  const [errorMsg, setErrorMsg] = useState('') 
   
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [fullName, setFullName] = useState('')
-  const [address, setAddress] = useState('')
   const [otp, setOtp] = useState('')
 
-  // 1. نظام تسجيل الدخول الذكي (Smart Auth)
+  // 1. نظام تسجيل الدخول الذكي (مع حل مشكلة الوميض) 🛠️
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
     setErrorMsg('')
     try {
-      // تسجيل الدخول
       const { data: authData, error } = await supabase.auth.signInWithPassword({ email, password })
       if (error) throw new Error('البريد الإلكتروني أو كلمة المرور غير صحيحة.')
       if (!authData.user) throw new Error('حدث خطأ في الخادم.')
 
-      // جلب الرتبة الحقيقية من قاعدة البيانات للتوجيه الصحيح
       const { data: profile } = await supabase
         .from('profiles')
         .select('role, is_trusted')
@@ -42,29 +39,27 @@ function AuthContent() {
 
       const userRole = profile?.role || 'customer'
 
-      // تحديث الجلسة الآمنة
       document.cookie = `user_role=${userRole}; path=/; max-age=31536000; SameSite=Lax`;
       localStorage.setItem('user_role', userRole);
 
-      // نظام التوجيه المعماري (Routing Engine)
+      // 👑 الحل الجذري لمنع الوميض (Hard Redirect)
       if (userRole === 'merchant') {
-        router.push('/merchant-dashboard')
+        window.location.href = '/merchant-dashboard';
       } else if (userRole === 'super_admin') {
-        router.push('/master-panel')
+        window.location.href = '/master-panel';
       } else if (userRole === 'staff') {
-        router.push('/admin-panel')
+        window.location.href = '/admin-panel';
       } else {
-        router.push('/') // الزبون للرئيسية
+        window.location.href = '/';
       }
 
     } catch (error: any) {
       setErrorMsg(error.message)
-    } finally {
-      setLoading(false)
+      setLoading(false) 
     }
   }
 
-  // 2. إنشاء حساب (مخصص للزبائن هنا، التجار من merchant-register)
+  // 2. إنشاء حساب 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault()
     setErrorMsg('')
@@ -78,8 +73,7 @@ function AuthContent() {
         options: {
           data: {
             full_name: fullName,
-            address: address,
-            role: role // سيتم التعامل معها عبر الـ Trigger في قاعدة البيانات
+            role: role 
           }
         }
       })
@@ -93,7 +87,7 @@ function AuthContent() {
     }
   }
 
-  // باقي الدوال (OTP, Forgot, Reset) كما هي مبنية بشكل صحيح
+  // 3. توثيق الرمز
   const handleVerifyOtp = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
@@ -101,12 +95,11 @@ function AuthContent() {
     try {
       const { error } = await supabase.auth.verifyOtp({ email, token: otp, type: 'signup' })
       if (error) throw new Error('الكود غير صحيح أو منتهي الصلاحية.')
-      router.push('/')
+      window.location.href = '/' // Hard Redirect بعد التوثيق لضمان نظافة الجلسة
     } catch (error: any) {
       setErrorMsg(error.message)
-    } finally {
       setLoading(false)
-    }
+    } 
   }
 
   const handleForgotPassword = async (e: React.FormEvent) => {
@@ -176,7 +169,6 @@ function AuthContent() {
           </p>
         </div>
 
-        {/* عرض الأخطاء */}
         {errorMsg && (
           <div className="bg-rose-50 border border-rose-200 text-rose-600 p-4 rounded-2xl mb-6 text-sm font-black flex items-center gap-2 animate-in slide-in-from-top-2">
             <AlertCircle size={18} className="flex-shrink-0" /> {errorMsg}
@@ -185,7 +177,6 @@ function AuthContent() {
 
         <div className="animate-in fade-in slide-in-from-bottom-8">
           
-          {/* نموذج الدخول */}
           {view === 'login' && (
             <form onSubmit={handleLogin} className="space-y-4">
               <div className="relative">
@@ -205,7 +196,6 @@ function AuthContent() {
             </form>
           )}
 
-          {/* نموذج التسجيل */}
           {view === 'signup' && (
             <form onSubmit={handleSignup} className="space-y-4">
               <div className="relative">
@@ -230,7 +220,6 @@ function AuthContent() {
             </form>
           )}
 
-          {/* التأكيد والاستعادة */}
           {view === 'verify' && (
             <form onSubmit={handleVerifyOtp} className="space-y-4">
               <div className="relative">
@@ -276,7 +265,6 @@ function AuthContent() {
           )}
         </div>
 
-        {/* أزرار التبديل السفلية */}
         {(view === 'login' || view === 'signup') && (
           <div className="mt-8 text-center animate-in fade-in">
             <p className="text-slate-500 font-bold text-sm">
