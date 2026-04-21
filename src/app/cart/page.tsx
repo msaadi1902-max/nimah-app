@@ -126,7 +126,7 @@ function CheckoutSection() {
   const safeCart = Array.isArray(cart) ? cart : [];
   
   // الحساب المالي الآمن (Strict Math Calculation)
-  const subtotal = safeCart.reduce((total: number, item: any) => {
+  const subtotal = (safeCart as any[]).reduce((total: number, item: any) => {
     return total + (Number(item.price) || 0);
   }, 0);
   

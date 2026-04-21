@@ -10,23 +10,20 @@ export default function WelcomePage() {
   const [isAdminUnlocked, setIsAdminUnlocked] = useState(false)
   const pressTimer = useRef<NodeJS.Timeout | null>(null)
 
-  // هندسة الضغط المطول الاحترافية (للموبايل والكمبيوتر)
   const handlePressStart = (e: React.MouseEvent | React.TouchEvent) => {
     if (pressTimer.current) clearTimeout(pressTimer.current)
     pressTimer.current = setTimeout(() => {
       setIsAdminUnlocked(true)
-      // اهتزاز خفيف للموبايل للتنبيه (إذا كان مدعوماً)
       if (typeof window !== 'undefined' && window.navigator && window.navigator.vibrate) {
         window.navigator.vibrate(50);
       }
-    }, 2000) // ثانيتين من الضغط المستمر
+    }, 2000) 
   }
 
   const handlePressEnd = () => {
     if (pressTimer.current) clearTimeout(pressTimer.current)
   }
 
-  // منع ظهور قائمة الموبايل عند الضغط المطول
   const handleContextMenu = (e: React.MouseEvent) => {
     e.preventDefault()
   }
@@ -34,18 +31,13 @@ export default function WelcomePage() {
   const handleContinue = () => {
     if (!role) return;
     
-    // تخزين الرتبة للـ Middleware
     document.cookie = `user_role=${role}; path=/; max-age=31536000; SameSite=Lax`;
     localStorage.setItem('user_role', role);
 
-    if (role === 'merchant') {
-      router.push('/merchant-register');
-    } else {
-      router.push(`/auth?role=${role}`);
-    }
+    // 🛠️ الحل هنا: توجيه الجميع لبوابة الـ Auth الآمنة التي تحتوي على الإيميل وكلمة السر
+    router.push(`/auth?role=${role}`);
   }
 
-  // تنظيف المؤقت لتجنب تسرب الذاكرة
   useEffect(() => {
     return () => { if (pressTimer.current) clearTimeout(pressTimer.current) }
   }, [])
@@ -62,7 +54,7 @@ export default function WelcomePage() {
           onTouchEnd={handlePressEnd}
           onContextMenu={handleContextMenu}
           className="w-20 h-20 bg-emerald-600 rounded-[25px] flex items-center justify-center mx-auto mb-6 shadow-[0_10px_40px_rgba(5,150,105,0.3)] transition-transform active:scale-95 select-none touch-none cursor-pointer"
-          style={{ WebkitTapHighlightColor: 'transparent' }} // منع مربع التحديد في الآيفون
+          style={{ WebkitTapHighlightColor: 'transparent' }}
         >
           <span className="text-white text-3xl font-black italic pointer-events-none">ن</span>
         </div>
@@ -109,7 +101,6 @@ export default function WelcomePage() {
           متابعة <ArrowLeft size={20} />
         </button>
 
-        {/* 👑 البوابة الإدارية (تظهر فقط بعد الضغط المطول) */}
         {isAdminUnlocked && (
           <Link 
             href="/admin-login" 
