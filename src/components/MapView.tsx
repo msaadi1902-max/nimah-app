@@ -1,53 +1,99 @@
 'use client'
-import React, { useEffect } from 'react'
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet'
+import React, { useEffect, useState } from 'react'
+import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import L from 'leaflet'
+import { Store, MapPin } from 'lucide-react'
 
-const customIcon = L.icon({
-  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+// إصلاح أيقونات Leaflet الافتراضية
+const defaultIcon = L.icon({
+  iconUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png',
+  shadowUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-shadow.png',
   iconSize: [25, 41],
   iconAnchor: [12, 41],
   popupAnchor: [1, -34],
-})
+  shadowSize: [41, 41]
+});
 
-export default function MapView({ items }: { items: any[] }) {
-  // دمشق كمركز افتراضي في حال عدم وجود منتجات
-  const defaultPosition: [number, number] = [33.5138, 36.2765]
+interface MapViewProps {
+  items: any[]
+}
+
+// مكون فرعي لتحديث مركز الخريطة عند العثور على موقع المستخدم
+function LocationMarker() {
+  const [position, setPosition] = useState<L.LatLng | null>(null)
+  const map = useMap()
 
   useEffect(() => {
-    window.dispatchEvent(new Event('resize'))
-  }, [])
+    map.locate().on("locationfound", function (e) {
+      setPosition(e.latlng)
+      map.flyTo(e.latlng, 14, { duration: 1.5 })
+    })
+  }, [map])
+
+  return position === null ? null : (
+    <Marker position={position} icon={defaultIcon}>
+      <Popup>
+        <div className="text-center font-sans" dir="rtl">
+          <p className="font-black text-emerald-600 mb-1">أنت هنا 📍</p>
+          <p className="text-[10px] text-slate-500">نحن نبحث عن عروض بالقرب منك</p>
+        </div>
+      </Popup>
+    </Marker>
+  )
+}
+
+export default function MapView({ items }: MapViewProps) {
+  // إحداثيات دمشق (نقطة مركزية افتراضية)
+  const defaultCenter: [number, number] = [33.5138, 36.2765]
 
   return (
-    <div className="w-full h-full relative z-0">
-      <MapContainer center={defaultPosition} zoom={13} style={{ height: '100%', width: '100%', zIndex: 0 }} zoomControl={false}>
-        <TileLayer
-          url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
-          attribution='&copy; CartoDB'
-        />
-        {items.map((item) => (
-          <Marker 
-            key={item.id} 
-            // استخدام الإحداثيات الحقيقية من الداتا
-            position={[item.lat || defaultPosition[0], item.lng || defaultPosition[1]]} 
-            icon={customIcon}
-          >
-            <Popup>
-              <div className="text-right font-sans min-w-[140px]" dir="rtl">
-                <img src={item.image_url} alt={item.name} className="w-full h-24 object-cover rounded-xl mb-2 shadow-sm" />
-                <h3 className="font-black text-sm text-gray-900 leading-tight mb-1">{item.name}</h3>
-                <div className="flex justify-between items-center mt-2 border-t pt-2 border-gray-50">
-                  <span className="font-black text-emerald-600 text-base">{item.discounted_price} €</span>
-                  <span className="text-[9px] bg-emerald-50 text-emerald-700 font-black px-2 py-1 rounded-lg">{item.category}</span>
+    <MapContainer 
+      center={defaultCenter} 
+      zoom={13} 
+      scrollWheelZoom={true} 
+      style={{ height: '100%', width: '100%', zIndex: 0 }}
+      zoomControl={false}
+    >
+      <TileLayer
+        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+      />
+      
+      <LocationMarker />
+
+      {/* رسم دبابيس الوجبات */}
+      {items.map((item) => {
+        // إذا كان التاجر لم يحدد موقعه، سنعطيه موقعاً عشوائياً قريباً من المركز (لغرض العرض)
+        // في المستقبل يمكننا جعل التاجر يحفظ إحداثياته الحقيقية في قاعدة البيانات
+        const lat = item.latitude || (defaultCenter[0] + (Math.random() - 0.5) * 0.05);
+        const lng = item.longitude || (defaultCenter[1] + (Math.random() - 0.5) * 0.05);
+
+        return (
+          <Marker key={item.id} position={[lat, lng]} icon={defaultIcon}>
+            <Popup className="custom-popup">
+              <div className="font-sans text-right w-48" dir="rtl">
+                <div className="w-full h-24 rounded-xl overflow-hidden mb-2 relative">
+                  <img src={item.image_url} className="w-full h-full object-cover" alt="Meal" />
+                  <div className="absolute bottom-1 right-1 bg-emerald-600 text-white px-2 py-0.5 rounded-md text-[10px] font-black shadow-sm">
+                    {item.discounted_price} {item.currency}
+                  </div>
                 </div>
-                <p className="text-[10px] text-gray-400 mt-1 font-bold">📍 الموقع دقيق</p>
+                <h3 className="font-black text-sm text-slate-900 leading-tight mb-1">{item.name}</h3>
+                <p className="text-[10px] font-bold text-slate-500 flex items-center gap-1 mb-2">
+                  <Store size={10} className="text-emerald-500"/> {item.profiles?.shop_name || 'متجر'}
+                </p>
+                <a 
+                  href={`/meal/${item.id}`} 
+                  className="block w-full bg-slate-900 text-white text-center py-2 rounded-xl text-xs font-black hover:bg-slate-800 transition-colors"
+                >
+                  التفاصيل والشراء
+                </a>
               </div>
             </Popup>
           </Marker>
-        ))}
-      </MapContainer>
-    </div>
+        )
+      })}
+    </MapContainer>
   )
 }
