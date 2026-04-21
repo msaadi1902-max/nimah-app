@@ -239,7 +239,8 @@ export default function MasterPanel() {
                   <div>
                     <div className="flex items-center gap-2">
                       <h3 className="font-black text-lg">{merchant.shop_name || merchant.full_name || 'متجر بدون اسم'}</h3>
-                      {merchant.is_trusted && <Star size={16} className="text-yellow-400 fill-yellow-400" title="تاجر موثوق"/>}
+                      {/* 👑 الحل الجذري والاحترافي للـ Star Error يكمن في إحاطتها بعنصر span */}
+                      {merchant.is_trusted && <span title="تاجر موثوق VIP" className="inline-flex"><Star size={16} className="text-yellow-400 fill-yellow-400" /></span>}
                     </div>
                     <p className="text-[11px] text-slate-400 font-bold mt-1">{merchant.email} | {merchant.phone || 'لا يوجد رقم'}</p>
                     <div className="flex gap-2 items-center mt-2">
@@ -252,7 +253,6 @@ export default function MasterPanel() {
                 </div>
 
                 <div className="flex flex-wrap gap-2 items-center">
-                  {/* أزرار الحماية والحالة */}
                   {merchant.status !== 'active' && (
                     <button onClick={() => updateStatus(merchant.id, 'active', merchant.shop_name)} className="px-4 py-2.5 bg-emerald-600/10 text-emerald-500 hover:bg-emerald-600 hover:text-white rounded-xl text-xs font-black flex items-center gap-1 transition-all border border-emerald-600/20">
                       <CheckCircle size={14} /> تفعيل المتجر
@@ -269,7 +269,7 @@ export default function MasterPanel() {
                     </button>
                   )}
 
-                  <div className="w-px h-6 bg-slate-700 mx-2 hidden md:block"></div> {/* فاصل بصري */}
+                  <div className="w-px h-6 bg-slate-700 mx-2 hidden md:block"></div> 
 
                   {/* زر التوثيق VIP */}
                   <button 
@@ -299,7 +299,11 @@ export default function MasterPanel() {
                     <User size={20} />
                   </div>
                   <div>
-                    <h3 className="font-black text-sm text-white">{user.full_name || 'مستخدم غير معروف'}</h3>
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-black text-sm text-white">{user.full_name || 'مستخدم غير معروف'}</h3>
+                      {/* حل خطأ النجمة للزبائن الموثوقين إن وجدوا */}
+                      {user.is_trusted && <span title="مستخدم موثوق" className="inline-flex"><Star size={14} className="text-yellow-400 fill-yellow-400 animate-in zoom-in" /></span>}
+                    </div>
                     <p className="text-[10px] text-slate-500 font-bold mt-0.5">{user.email}</p>
                     <div className="mt-2 flex items-center gap-2">
                       {getRoleBadge(user.role)}
