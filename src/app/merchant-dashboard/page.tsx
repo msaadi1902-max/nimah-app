@@ -5,13 +5,20 @@ import { createClient } from '@supabase/supabase-js'
 import { 
   Clock, ArrowRight, Loader2, Store, TrendingUp, CheckCircle, 
   AlertCircle, QrCode, Search, ShieldCheck, XCircle, Trash2, 
-  ImagePlus, Crown, Megaphone, Lock, PackageX
+  ImagePlus, Crown, Megaphone, Lock, PackageX, MapPin
 } from 'lucide-react'
 import BottomNav from '@/components/BottomNav'
+import dynamic from 'next/dynamic'
 
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
 
 const CATEGORIES = ['مطاعم', 'مخابز', 'حلويات', 'بقالة', 'عصرونية', 'ألبسة', 'عطور', 'موبايلات', 'أثاث']
+
+// 👑 استدعاء خريطة تحديد الموقع بشكل ديناميكي لمنع أخطاء الخادم (SSR)
+const DynamicLocationPicker = dynamic(() => import('@/components/LocationPicker'), {
+  ssr: false,
+  loading: () => <div className="h-[300px] w-full bg-slate-50 rounded-[30px] border border-slate-100 flex flex-col items-center justify-center text-emerald-500"><Loader2 className="animate-spin mb-2" /><span className="text-xs font-bold text-slate-400">جاري تحميل الخريطة...</span></div>
+})
 
 export default function MerchantDashboard() {
   const router = useRouter()
@@ -42,6 +49,9 @@ export default function MerchantDashboard() {
     endTime: '21:00'
   })
 
+  // 📍 حالة تخزين إحداثيات الموقع (ميزة الخريطة الجديدة)
+  const [location, setLocation] = useState<{lat: number, lng: number} | null>(null)
+
   // حالات التحقق من التذكرة
   const [ticketInput, setTicketInput] = useState('')
   const [verifying, setVerifying] = useState(false)
@@ -64,7 +74,7 @@ export default function MerchantDashboard() {
     const { data: profile } = await supabase.from('profiles').select('shop_name, full_name, status').eq('id', user.id).single()
     if (profile) {
       setMerchantName(profile.shop_name || profile.full_name || 'تاجر نِعمة')
-      setMerchantStatus(profile.status || 'pending') // افتراضياً قيد المراجعة
+      setMerchantStatus(profile.status || 'pending') 
     }
 
     // جلب العروض
@@ -170,11 +180,13 @@ export default function MerchantDashboard() {
     }
   }
 
-  // === إضافة العرض (تعديل النشر التلقائي) ===
+  // === إضافة العرض (مع النشر التلقائي وإحداثيات الخريطة) ===
   const handleSubmitMeal = async (e: React.FormEvent) => {
     e.preventDefault()
     if (merchantStatus !== 'active') return alert("حسابك قيد المراجعة، لا يمكنك النشر حالياً ⏳");
     if (imageFiles.length === 0) return alert("يرجى إرفاق صورة واحدة على الأقل 📸")
+    if (!location) return alert("يرجى النقر على الخريطة لتثبيت موقع متجرك لكي يصل إليك الزبائن 📍")
+    
     setLoading(true)
 
     try {
@@ -204,15 +216,18 @@ export default function MerchantDashboard() {
         pickup_time: `من ${product.startTime} إلى ${product.endTime}`,
         image_url: uploadedUrls[0],
         images_gallery: uploadedUrls,
-        is_approved: true // 👑 النشر التلقائي والفوري يعمل الآن (لا يحتاج موافقة الموظفين)
+        is_approved: true, // النشر التلقائي والفوري يعمل الآن
+        latitude: location?.lat, // إرسال الإحداثيات لقاعدة البيانات
+        longitude: location?.lng
       }])
 
       if (error) throw error
-      alert('✅ تم النشر بنجاح! عرضك متاح الآن للزبائن في السوق المباشر.')
+      alert('✅ تم النشر بنجاح! عرضك متاح الآن للزبائن على الخريطة وفي السوق المباشر.')
       
       setProduct({ ...product, title: '', description: '', originalPrice: '', discountedPrice: '', quantity: '1' })
       setImageFiles([])
       setPreviewUrls([])
+      setLocation(null) // تصفير الخريطة
       setActiveTab('dashboard')
       fetchMerchantData()
     } catch (error: any) {
@@ -222,7 +237,7 @@ export default function MerchantDashboard() {
     }
   }
 
-  // 👑 إحصائيات متقدمة تعتمد على المخزون (بما أن النشر تلقائي)
+  // 👑 إحصائيات متقدمة تعتمد على المخزون 
   const activeMealsCount = myMeals.filter(m => m.quantity > 0).length
   const outOfStockCount = myMeals.filter(m => m.quantity <= 0).length
 
@@ -409,11 +424,10 @@ export default function MerchantDashboard() {
         </div>
       )}
 
-      {/* 3. تبويب إضافة وجبة (محمي بنظام Guardian) */}
+      {/* 3. تبويب إضافة وجبة (محمي بنظام Guardian + الخريطة 📍) */}
       {activeTab === 'add' && (
         <div className="px-6 animate-in slide-in-from-left-4">
           
-          {/* 🛡️ قفل النشر للتجار الجدد (لم يتم حذف هذه الميزة) */}
           {merchantStatus !== 'active' ? (
             <div className="bg-white p-8 rounded-[35px] border border-slate-100 text-center shadow-sm flex flex-col items-center mt-10">
               <div className="w-20 h-20 bg-amber-50 rounded-full flex items-center justify-center text-amber-500 mb-6">
@@ -428,9 +442,26 @@ export default function MerchantDashboard() {
               </button>
             </div>
           ) : (
-            /* نموذج الإضافة يعمل فقط إذا كان نشطاً */
             <form onSubmit={handleSubmitMeal} className="space-y-6">
               
+              {/* 📍 قسم تحديد الموقع الجغرافي للمتجر (الميزة الجديدة) */}
+              <div className="bg-white p-6 rounded-[30px] shadow-sm border border-slate-100">
+                <label className="text-xs font-black text-slate-900 mr-2 flex items-center gap-2 mb-4">
+                  <MapPin size={18} className="text-emerald-500" /> حدد موقع الاستلام على الخريطة
+                </label>
+                <DynamicLocationPicker onLocationSelect={(lat: number, lng: number) => setLocation({lat, lng})} />
+                
+                {location ? (
+                  <div className="mt-4 flex items-center gap-2 text-[10px] font-black text-emerald-700 bg-emerald-50 p-3 rounded-xl border border-emerald-100 animate-in fade-in">
+                    <CheckCircle size={16} className="text-emerald-500 shrink-0" /> تم حفظ الإحداثيات وسيظهر متجرك للزبائن على الخريطة
+                  </div>
+                ) : (
+                  <p className="text-[10px] font-bold text-amber-600 mt-3 flex items-center gap-1">
+                    <AlertCircle size={12}/> يرجى التفاعل مع الخريطة لتثبيت دبوس متجرك
+                  </p>
+                )}
+              </div>
+
               {/* قسم رفع الصور */}
               <div className="relative group">
                 <input type="file" accept="image/*" multiple onChange={handleImageChange} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
