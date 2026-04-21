@@ -57,7 +57,7 @@ export default function BrowsePage() {
       .from('meals')
       .select('*, profiles:merchant_id(shop_name)')
       .eq('is_approved', true)
-      .eq('is_sponsored', false) // 👑 جلب العروض المجانية للتجار فقط
+      .eq('is_sponsored', false)
       .gt('quantity', 0)
       .gte('end_date', today)
 
@@ -89,7 +89,7 @@ export default function BrowsePage() {
   }, [activeCategory, searchQuery, sortBy])
 
   const toggleFavorite = (e: React.MouseEvent, id: number) => {
-    e.stopPropagation() // لمنع فتح التفاصيل عند ضغط القلب
+    e.stopPropagation() 
     if (favorites.includes(id)) {
       setFavorites(favorites.filter(favId => favId !== id))
     } else {
@@ -135,11 +135,19 @@ export default function BrowsePage() {
           // 🗺️ منطقة الخريطة الفاخرة
           <div className="p-4 w-full h-[calc(100vh-270px)] animate-in fade-in duration-500 z-0">
             <div className="w-full h-full rounded-[40px] overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.1)] border-4 border-white relative">
-              {/* شريط عائم على الخريطة */}
-              <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 bg-slate-900/90 backdrop-blur-md text-white px-4 py-2 rounded-full text-[10px] font-black tracking-widest uppercase shadow-lg shadow-slate-900/20">
-                {items.length} عروض متوفرة حولك
+              
+              <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 bg-slate-900/90 backdrop-blur-md text-white px-5 py-2.5 rounded-full text-[10px] font-black tracking-widest uppercase shadow-lg shadow-slate-900/20 flex flex-col items-center gap-1 w-max">
+                <span>{items.length} عروض متوفرة</span>
+                <span className="text-[8px] text-emerald-400 normal-case">انقر على الخريطة لتثبيت دبوس البحث 📍</span>
               </div>
-              <DynamicMap items={items} />
+              
+              {/* استدعاء الخريطة وتمرير دالة لالتقاط الدبوس */}
+              <DynamicMap 
+                items={items} 
+                onPinDrop={(lat: number, lng: number) => {
+                  console.log("تم إسقاط الدبوس في:", lat, lng)
+                }} 
+              />
             </div>
           </div>
         ) : (
