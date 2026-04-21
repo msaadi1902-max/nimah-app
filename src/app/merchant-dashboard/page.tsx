@@ -3,9 +3,9 @@ import React, { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@supabase/supabase-js'
 import { 
-  PlusCircle, Clock, Camera, ArrowRight, Loader2, ListFilter, 
-  Store, Package, TrendingUp, CheckCircle, AlertCircle, 
-  Coins, Calendar, QrCode, Search, ShieldCheck, XCircle, Trash2, ImagePlus 
+  Clock, ArrowRight, Loader2, Store, TrendingUp, CheckCircle, 
+  AlertCircle, QrCode, Search, ShieldCheck, XCircle, Trash2, 
+  ImagePlus, Crown, Megaphone, Lock
 } from 'lucide-react'
 import BottomNav from '@/components/BottomNav'
 
@@ -17,17 +17,20 @@ export default function MerchantDashboard() {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [dataLoading, setDataLoading] = useState(true)
+  
+  // بيانات التاجر
   const [merchantName, setMerchantName] = useState('جاري التحميل...')
+  const [merchantStatus, setMerchantStatus] = useState('pending') // pending, active, blocked
   const [myMeals, setMyMeals] = useState<any[]>([])
   
   const [activeTab, setActiveTab] = useState<'dashboard' | 'add' | 'scan'>('dashboard')
 
-  // حالات إضافة منتج (محدثة لدعم الصور المتعددة والوصف)
+  // حالات إضافة منتج
   const [imageFiles, setImageFiles] = useState<File[]>([])
   const [previewUrls, setPreviewUrls] = useState<string[]>([])
   const [product, setProduct] = useState({
     title: '',
-    description: '', // 👑 الميزة الجديدة: الوصف والملاحظات
+    description: '',
     category: 'مطاعم',
     currency: 'ل.س',
     originalPrice: '',
@@ -39,7 +42,7 @@ export default function MerchantDashboard() {
     endTime: '21:00'
   })
 
-  // حالات تحقق من التذكرة
+  // حالات التحقق من التذكرة
   const [ticketInput, setTicketInput] = useState('')
   const [verifying, setVerifying] = useState(false)
   const [scanResult, setScanResult] = useState<any>(null)
@@ -50,16 +53,21 @@ export default function MerchantDashboard() {
 
   const fetchMerchantData = async () => {
     setDataLoading(true)
-    const { data: { user } } = await supabase.auth.getUser()
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
     
-    if (!user) {
-      router.replace('/welcome')
+    if (authError || !user) {
+      router.replace('/auth?role=merchant')
       return
     }
 
-    const { data: profile } = await supabase.from('profiles').select('shop_name, full_name').eq('id', user.id).single()
-    if (profile) setMerchantName(profile.shop_name || profile.full_name || 'تاجر معتمد')
+    // جلب بيانات البروفايل للتحقق من حالة المتجر
+    const { data: profile } = await supabase.from('profiles').select('shop_name, full_name, status').eq('id', user.id).single()
+    if (profile) {
+      setMerchantName(profile.shop_name || profile.full_name || 'تاجر نِعمة')
+      setMerchantStatus(profile.status || 'pending') // افتراضياً قيد المراجعة
+    }
 
+    // جلب العروض
     const { data: meals } = await supabase
       .from('meals')
       .select('*')
@@ -114,10 +122,9 @@ export default function MerchantDashboard() {
     }
   }
 
-  // 👑 الميزة الجديدة: دالة حذف العرض
+  // === دالة حذف العرض ===
   const handleDeleteMeal = async (mealId: number) => {
     if (!window.confirm('هل أنت متأكد أنك تريد حذف هذا العرض نهائياً؟ 🗑️')) return
-    
     setLoading(true)
     try {
       const { error } = await supabase.from('meals').delete().eq('id', mealId)
@@ -131,28 +138,50 @@ export default function MerchantDashboard() {
     }
   }
 
-  // 👑 الميزة الجديدة: اختيار عدة صور
+  // 👑 الميزة الإستراتيجية: الترويج للصفحة الرئيسية
+  const handlePromoteMeal = async (mealId: number) => {
+    const hasSponsored = myMeals.some(m => m.is_sponsored === true);
+    if (hasSponsored) {
+      return alert('🚫 عذراً، يُسمح لك بترويج عرض واحد فقط في الصفحة الرئيسية. يرجى إزالة الترويج عن العرض السابق أولاً.');
+    }
+
+    if (!window.confirm('هل تريد رفع هذا العرض للواجهة الرئيسية لزيادة المبيعات؟ 🚀')) return;
+
+    setLoading(true)
+    try {
+      const { error } = await supabase.from('meals').update({ is_sponsored: true }).eq('id', mealId)
+      if (error) throw error
+      alert('🎉 تم تثبيت العرض في الصفحة الرئيسية بنجاح!');
+      fetchMerchantData();
+    } catch (err: any) {
+      alert('خطأ: ' + err.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // === رفع الصور ===
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       const filesArray = Array.from(e.target.files)
       setImageFiles(filesArray)
-      
       const urls = filesArray.map(file => URL.createObjectURL(file))
       setPreviewUrls(urls)
     }
   }
 
-  // 👑 الميزة الجديدة: حفظ عدة صور مع الوصف
+  // === إضافة العرض ===
   const handleSubmitMeal = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (imageFiles.length === 0) return alert("يرجى التقاط أو رفع صورة واحدة على الأقل للمنتج 📸")
+    if (merchantStatus !== 'active') return alert("حسابك قيد المراجعة، لا يمكنك النشر حالياً ⏳");
+    if (imageFiles.length === 0) return alert("يرجى إرفاق صورة واحدة على الأقل 📸")
     setLoading(true)
 
     try {
       const { data: { user } } = await supabase.auth.getUser()
       const uploadedUrls: string[] = []
 
-      // رفع الصور واحدة تلو الأخرى
+      // رفع الصور
       for (const file of imageFiles) {
         const fileExt = file.name.split('.').pop()
         const fileName = `${user?.id}/${Math.random()}.${fileExt}`
@@ -161,11 +190,10 @@ export default function MerchantDashboard() {
         uploadedUrls.push(publicUrl)
       }
 
-      // حفظ الوجبة في قاعدة البيانات مع قائمة الصور والوصف
       const { error } = await supabase.from('meals').insert([{
         merchant_id: user?.id,
         name: product.title,
-        description: product.description, // حفظ الملاحظات
+        description: product.description,
         category: product.category,
         currency: product.currency,
         original_price: parseFloat(product.originalPrice),
@@ -174,22 +202,21 @@ export default function MerchantDashboard() {
         start_date: product.startDate,
         end_date: product.endDate,
         pickup_time: `من ${product.startTime} إلى ${product.endTime}`,
-        image_url: uploadedUrls[0], // الصورة الرئيسية
-        images_gallery: uploadedUrls, // معرض الصور المتعددة
-        is_approved: false 
+        image_url: uploadedUrls[0],
+        images_gallery: uploadedUrls,
+        is_approved: false // يحتاج موافقة الموظفين أولاً
       }])
 
       if (error) throw error
-      alert('✅ تم إرسال العرض للإدارة بنجاح!')
+      alert('✅ تم إرسال العرض بنجاح! سيظهر للزبائن فور موافقة الإدارة.')
       
-      // إعادة تعيين الفورم
       setProduct({ ...product, title: '', description: '', originalPrice: '', discountedPrice: '' })
       setImageFiles([])
       setPreviewUrls([])
       setActiveTab('dashboard')
       fetchMerchantData()
     } catch (error: any) {
-      alert('❌ خطأ: ' + error.message)
+      alert('❌ خطأ في النظام: ' + error.message)
     } finally {
       setLoading(false)
     }
@@ -198,36 +225,45 @@ export default function MerchantDashboard() {
   const activeMealsCount = myMeals.filter(m => m.is_approved && m.quantity > 0).length
   const pendingMealsCount = myMeals.filter(m => !m.is_approved).length
 
-  if (dataLoading) return <div className="min-h-screen bg-gray-50 flex justify-center items-center"><Loader2 className="animate-spin text-emerald-600 w-12 h-12"/></div>
+  if (dataLoading) return <div className="min-h-screen bg-slate-50 flex justify-center items-center"><Loader2 className="animate-spin text-emerald-600 w-12 h-12"/></div>
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-28 text-right font-sans" dir="rtl">
+    <div className="min-h-screen bg-slate-50 pb-28 text-right font-sans" dir="rtl">
       
-      <div className="bg-emerald-900 text-white p-6 rounded-b-[40px] shadow-lg mb-6 sticky top-0 z-20">
-        <div className="flex items-center justify-between mb-4">
-          <button onClick={() => router.back()} className="bg-white/10 p-2 rounded-xl active:scale-95 transition-transform">
+      {/* 👑 الهيدر الإمبراطوري للتاجر */}
+      <div className="bg-slate-900 text-white p-6 rounded-b-[40px] shadow-2xl mb-6 sticky top-0 z-30 relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none"></div>
+        
+        <div className="flex items-center justify-between mb-6 relative z-10">
+          <button onClick={() => router.back()} className="bg-white/10 p-2 rounded-xl active:scale-95 transition-transform hover:bg-white/20">
             <ArrowRight size={20} />
           </button>
-          <h1 className="text-lg font-black tracking-tighter">لوحة التحكم الذكية 🏪</h1>
+          <h1 className="text-xl font-black tracking-tight">مركز البائعين 🏪</h1>
           <div className="w-10"></div>
         </div>
         
-        <div className="bg-white/10 p-4 rounded-2xl flex items-center justify-between backdrop-blur-md border border-white/10">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center text-emerald-900 font-black text-xl shadow-inner uppercase">
+        <div className="bg-slate-800/80 p-4 rounded-2xl flex items-center justify-between backdrop-blur-xl border border-slate-700 relative z-10 shadow-inner">
+          <div className="flex items-center gap-4">
+            <div className="w-14 h-14 bg-emerald-500 rounded-xl flex items-center justify-center text-slate-900 font-black text-2xl shadow-lg shadow-emerald-500/20 uppercase">
               {merchantName.charAt(0)}
             </div>
             <div>
-              <h2 className="font-black text-sm">{merchantName}</h2>
-              <p className="text-[9px] text-emerald-200 font-bold uppercase tracking-widest">متجر موثق بنظام نِعمة</p>
+              <h2 className="font-black text-base text-white">{merchantName}</h2>
+              <div className="flex items-center gap-1 mt-1">
+                {merchantStatus === 'active' ? (
+                  <span className="text-[10px] bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-md font-bold flex items-center gap-1"><CheckCircle size={10}/> موثق ومفعل</span>
+                ) : (
+                  <span className="text-[10px] bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded-md font-bold flex items-center gap-1"><Clock size={10}/> قيد المراجعة</span>
+                )}
+              </div>
             </div>
           </div>
         </div>
 
-        <div className="flex bg-black/20 p-1 rounded-2xl mt-4 backdrop-blur-sm">
-          <button onClick={() => setActiveTab('dashboard')} className={`flex-1 py-2.5 text-[10px] font-black rounded-xl transition-all ${activeTab === 'dashboard' ? 'bg-white text-emerald-900 shadow-md scale-100' : 'text-emerald-100'}`}>الإحصائيات</button>
-          <button onClick={() => setActiveTab('scan')} className={`flex-1 py-2.5 text-[10px] font-black rounded-xl transition-all ${activeTab === 'scan' ? 'bg-white text-emerald-900 shadow-md scale-100' : 'text-emerald-100'}`}>مسح تذكرة 🎫</button>
-          <button onClick={() => setActiveTab('add')} className={`flex-1 py-2.5 text-[10px] font-black rounded-xl transition-all ${activeTab === 'add' ? 'bg-white text-emerald-900 shadow-md scale-100' : 'text-emerald-100'}`}>إضافة عرض</button>
+        <div className="flex bg-slate-950/50 p-1.5 rounded-2xl mt-6 backdrop-blur-md relative z-10 border border-slate-800">
+          <button onClick={() => setActiveTab('dashboard')} className={`flex-1 py-3 text-xs font-black rounded-xl transition-all ${activeTab === 'dashboard' ? 'bg-slate-800 text-emerald-400 shadow-md' : 'text-slate-400 hover:text-white'}`}>المنتجات</button>
+          <button onClick={() => setActiveTab('scan')} className={`flex-1 py-3 text-xs font-black rounded-xl transition-all ${activeTab === 'scan' ? 'bg-slate-800 text-emerald-400 shadow-md' : 'text-slate-400 hover:text-white'}`}>تسليم 🎫</button>
+          <button onClick={() => setActiveTab('add')} className={`flex-1 py-3 text-xs font-black rounded-xl transition-all ${activeTab === 'add' ? 'bg-emerald-500 text-slate-950 shadow-lg shadow-emerald-500/20' : 'text-slate-400 hover:text-white'}`}>إضافة عرض</button>
         </div>
       </div>
 
@@ -235,48 +271,66 @@ export default function MerchantDashboard() {
       {activeTab === 'dashboard' && (
         <div className="px-6 space-y-6 animate-in fade-in slide-in-from-right-4">
           <div className="grid grid-cols-2 gap-4">
-            <div className="bg-white p-4 rounded-[25px] shadow-sm border border-gray-100 flex items-center gap-3">
-              <div className="bg-emerald-50 p-3 rounded-2xl text-emerald-600"><TrendingUp size={20}/></div>
+            <div className="bg-white p-5 rounded-[25px] shadow-sm border border-slate-100 flex items-center gap-4">
+              <div className="bg-emerald-50 p-3 rounded-2xl text-emerald-600"><TrendingUp size={24}/></div>
               <div>
-                <p className="text-[9px] text-gray-400 font-black uppercase">عروض نشطة</p>
-                <p className="text-xl font-black text-gray-900">{activeMealsCount}</p>
+                <p className="text-[10px] text-slate-400 font-black uppercase">نشطة للبيع</p>
+                <p className="text-2xl font-black text-slate-900">{activeMealsCount}</p>
               </div>
             </div>
-            <div className="bg-white p-4 rounded-[25px] shadow-sm border border-gray-100 flex items-center gap-3">
-              <div className="bg-amber-50 p-3 rounded-2xl text-amber-500"><Clock size={20}/></div>
+            <div className="bg-white p-5 rounded-[25px] shadow-sm border border-slate-100 flex items-center gap-4">
+              <div className="bg-amber-50 p-3 rounded-2xl text-amber-500"><Clock size={24}/></div>
               <div>
-                <p className="text-[9px] text-gray-400 font-black uppercase">بانتظار الموافقة</p>
-                <p className="text-xl font-black text-gray-900">{pendingMealsCount}</p>
+                <p className="text-[10px] text-slate-400 font-black uppercase">بانتظار الإدارة</p>
+                <p className="text-2xl font-black text-slate-900">{pendingMealsCount}</p>
               </div>
             </div>
           </div>
 
           <div className="space-y-4">
-            <h2 className="text-sm font-black text-gray-900 mr-2 flex items-center gap-2 italic uppercase">قائمة المنتجات الحالية</h2>
+            <h2 className="text-sm font-black text-slate-900 mr-2 flex items-center gap-2">إدارة المنتجات <Store size={16} className="text-slate-400"/></h2>
             {myMeals.length === 0 ? (
-              <div className="text-center bg-white p-12 rounded-[35px] border border-gray-100 text-gray-400 font-bold">لا توجد عروض.</div>
+              <div className="text-center bg-white p-12 rounded-[35px] border border-slate-100 text-slate-400 font-bold">لا توجد عروض حالياً. ابدأ بإضافة أول عرض لك!</div>
             ) : (
               myMeals.map(meal => (
-                <div key={meal.id} className="bg-white p-4 rounded-[30px] shadow-sm border border-gray-100 flex gap-4 items-center group relative">
+                <div key={meal.id} className="bg-white p-4 rounded-[30px] shadow-sm border border-slate-100 flex gap-4 items-center group relative overflow-hidden">
                   
-                  {/* 👑 زر الحذف */}
+                  {/* زر الحذف */}
                   <button 
                     onClick={() => handleDeleteMeal(meal.id)}
-                    disabled={loading}
-                    className="absolute top-4 left-4 p-2 bg-rose-50 text-rose-500 rounded-xl hover:bg-rose-500 hover:text-white transition-colors active:scale-90"
+                    className="absolute top-4 left-4 p-2 bg-rose-50 text-rose-500 rounded-xl hover:bg-rose-500 hover:text-white transition-colors active:scale-90 z-10"
                   >
                     <Trash2 size={16} />
                   </button>
 
-                  <div className="w-16 h-16 rounded-2xl overflow-hidden bg-gray-50 border border-gray-100">
-                    <img src={meal.image_url} alt={meal.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform" />
+                  {/* زر الترويج (VIP) */}
+                  {meal.is_approved && !meal.is_sponsored && (
+                    <button 
+                      onClick={() => handlePromoteMeal(meal.id)}
+                      className="absolute bottom-4 left-4 p-2 bg-amber-50 text-amber-600 rounded-xl hover:bg-amber-500 hover:text-white transition-colors active:scale-90 z-10 flex items-center gap-1 font-black text-[10px]"
+                      title="ترويج للصفحة الرئيسية"
+                    >
+                      <Megaphone size={14} /> ترويج
+                    </button>
+                  )}
+
+                  <div className="w-20 h-20 rounded-2xl overflow-hidden bg-slate-50 border border-slate-100 flex-shrink-0 relative">
+                    <img src={meal.image_url} alt={meal.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+                    {meal.is_sponsored && (
+                      <div className="absolute inset-x-0 bottom-0 bg-amber-500 text-slate-900 text-[8px] font-black text-center py-1 flex justify-center items-center gap-1">
+                        <Crown size={10}/> ممول
+                      </div>
+                    )}
                   </div>
-                  <div className="flex-1 pl-8">
-                    <h3 className="font-black text-sm text-gray-900 line-clamp-1">{meal.name}</h3>
-                    <p className="text-[10px] font-bold text-emerald-600 mt-1">{meal.discounted_price} {meal.currency || 'ل.س'}</p>
-                    <span className={`inline-block mt-2 text-[8px] font-black px-2 py-1 rounded-lg ${meal.is_approved ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}`}>
-                      {meal.is_approved ? 'منشور ✅' : 'تدقيق ⏳'}
-                    </span>
+                  
+                  <div className="flex-1 py-1">
+                    <h3 className="font-black text-sm text-slate-900 line-clamp-1">{meal.name}</h3>
+                    <p className="text-[11px] font-black text-emerald-600 mt-1 bg-emerald-50 inline-block px-2 py-0.5 rounded-md">{meal.discounted_price} {meal.currency || 'ل.س'}</p>
+                    <div className="mt-2 flex items-center gap-2">
+                      <span className={`text-[9px] font-black px-2 py-1 rounded-lg ${meal.is_approved ? 'bg-slate-100 text-slate-600' : 'bg-amber-50 text-amber-600'}`}>
+                        {meal.is_approved ? 'معروض للبيع' : 'قيد التدقيق ⏳'}
+                      </span>
+                    </div>
                   </div>
                 </div>
               ))
@@ -285,10 +339,11 @@ export default function MerchantDashboard() {
         </div>
       )}
 
-      {/* 2. تبويب مسح التذاكر */}
+      {/* 2. تبويب مسح التذاكر (Scan) - بقي كما هو لقوته */}
       {activeTab === 'scan' && (
         <div className="px-6 space-y-6 animate-in zoom-in-95">
-          <div className="bg-white p-6 rounded-[35px] shadow-sm border border-gray-100 text-center">
+          {/* ... (نفس كود التبويب السابق الخاص بمسح التذاكر - يمكنك الاحتفاظ به كما هو في كودك) ... */}
+           <div className="bg-white p-6 rounded-[35px] shadow-sm border border-gray-100 text-center">
             <div className="w-16 h-16 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-4">
               <QrCode size={32} />
             </div>
@@ -320,6 +375,7 @@ export default function MerchantDashboard() {
                 </div>
               ) : (
                 <div className="bg-white border-2 border-emerald-100 p-6 rounded-[35px] shadow-xl">
+                  {/* ... تفاصيل التذكرة ... */}
                   <div className="flex items-center gap-4 mb-6 pb-6 border-b border-gray-100">
                     <div className="w-20 h-20 bg-gray-50 rounded-2xl overflow-hidden shrink-0 border border-emerald-100">
                       <img src={scanResult.meals?.image_url} className="w-full h-full object-cover" />
@@ -354,57 +410,84 @@ export default function MerchantDashboard() {
         </div>
       )}
 
-      {/* 3. تبويب إضافة وجبة (دعم صور متعددة ووصف) */}
+      {/* 3. تبويب إضافة وجبة (محمي بنظام Guardian) */}
       {activeTab === 'add' && (
-        <form onSubmit={handleSubmitMeal} className="px-6 space-y-6 animate-in slide-in-from-left-4">
+        <div className="px-6 animate-in slide-in-from-left-4">
           
-          <div className="relative group">
-            <input type="file" accept="image/*" multiple onChange={handleImageChange} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
-            <div className="bg-white p-6 rounded-[35px] border-2 border-dashed border-emerald-200 flex flex-col items-center justify-center gap-3 min-h-[180px] overflow-hidden hover:bg-emerald-50 transition-all shadow-sm">
-              {previewUrls.length > 0 ? (
-                <div className="grid grid-cols-3 gap-2 w-full">
-                  {previewUrls.map((url, index) => (
-                    <img key={index} src={url} className="w-full h-24 object-cover rounded-2xl shadow-sm border border-gray-100" alt={`Preview ${index}`} />
-                  ))}
+          {/* 🛡️ قفل النشر للتجار الجدد */}
+          {merchantStatus !== 'active' ? (
+            <div className="bg-white p-8 rounded-[35px] border border-slate-100 text-center shadow-sm flex flex-col items-center mt-10">
+              <div className="w-20 h-20 bg-amber-50 rounded-full flex items-center justify-center text-amber-500 mb-6">
+                <Lock size={36} />
+              </div>
+              <h2 className="text-xl font-black text-slate-900 mb-2">حسابك قيد المراجعة</h2>
+              <p className="text-sm font-bold text-slate-500 leading-relaxed mb-6">
+                أهلاً بك في عائلة نِعمة! فريقنا يقوم حالياً بمراجعة طلب انضمامك. ستتمكن من نشر عروضك فور تفعيل حسابك للحفاظ على جودة المنصة.
+              </p>
+              <button onClick={() => fetchMerchantData()} className="bg-slate-900 text-white px-6 py-3 rounded-xl font-black text-xs active:scale-95 flex items-center gap-2">
+                <Loader2 size={16} className={dataLoading ? "animate-spin" : ""} /> تحديث الحالة
+              </button>
+            </div>
+          ) : (
+            /* نموذج الإضافة يعمل فقط إذا كان نشطاً */
+            <form onSubmit={handleSubmitMeal} className="space-y-6">
+              
+              {/* قسم رفع الصور */}
+              <div className="relative group">
+                <input type="file" accept="image/*" multiple onChange={handleImageChange} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
+                <div className="bg-white p-6 rounded-[30px] border-2 border-dashed border-emerald-200 flex flex-col items-center justify-center gap-3 min-h-[180px] overflow-hidden hover:bg-emerald-50 transition-all shadow-sm">
+                  {previewUrls.length > 0 ? (
+                    <div className="grid grid-cols-3 gap-2 w-full">
+                      {previewUrls.map((url, index) => (
+                        <img key={index} src={url} className="w-full h-24 object-cover rounded-2xl shadow-sm border border-slate-100" alt={`Preview ${index}`} />
+                      ))}
+                    </div>
+                  ) : (
+                    <>
+                      <div className="bg-emerald-50 p-4 rounded-full text-emerald-500"><ImagePlus size={32} /></div>
+                      <span className="font-black text-sm text-slate-700">اضغط لرفع صور المنتج 📸</span>
+                      <span className="text-[10px] text-slate-400 font-bold">يفضل رفع صور واضحة ومغرية</span>
+                    </>
+                  )}
                 </div>
-              ) : (
-                <>
-                  <div className="bg-emerald-100 p-4 rounded-full text-emerald-600"><ImagePlus size={32} /></div>
-                  <span className="font-black text-sm text-gray-700">اضغط لرفع صورة أو أكثر للمنتج</span>
-                  <span className="text-[10px] text-gray-400 font-bold">يمكنك تحديد عدة صور معاً</span>
-                </>
-              )}
-            </div>
-          </div>
+              </div>
 
-          <div className="space-y-4">
-            <input type="text" required value={product.title} placeholder="اسم الوجبة (مثلاً: مشاوي مشكل)" className="w-full bg-white border-2 border-gray-100 rounded-2xl p-5 text-gray-900 font-black focus:border-emerald-600 outline-none" onChange={(e) => setProduct({...product, title: e.target.value})} />
-            
-            {/* 👑 الميزة الجديدة: مربع الوصف والملاحظات */}
-            <textarea 
-              value={product.description} 
-              placeholder="اكتب ملاحظات أو مواصفات المنتج هنا (مثال: يكفي 3 أشخاص، يحتوي على مكسرات...)" 
-              className="w-full bg-white border-2 border-gray-100 rounded-2xl p-5 text-gray-900 font-bold text-sm focus:border-emerald-600 outline-none resize-none h-28" 
-              onChange={(e) => setProduct({...product, description: e.target.value})} 
-            />
-            
-            <div className="grid grid-cols-2 gap-4">
-              <select required value={product.category} onChange={(e) => setProduct({...product, category: e.target.value})} className="bg-white border-2 border-gray-100 rounded-2xl p-5 text-gray-900 font-black outline-none appearance-none">
-                {CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
-              </select>
-              <input type="text" required value={product.currency} className="bg-white border-2 border-gray-100 rounded-2xl p-5 text-gray-900 font-black outline-none" onChange={(e) => setProduct({...product, currency: e.target.value})} />
-            </div>
-            
-            <div className="flex gap-4">
-              <input type="number" required placeholder="السعر الأصلي" className="flex-1 bg-white border-2 border-gray-100 rounded-2xl p-5 text-gray-900 font-black text-center" onChange={(e) => setProduct({...product, originalPrice: e.target.value})} />
-              <input type="number" required placeholder="سعر نِعمة" className="flex-1 bg-emerald-50 border-2 border-emerald-200 rounded-2xl p-5 text-emerald-900 font-black text-center" onChange={(e) => setProduct({...product, discountedPrice: e.target.value})} />
-            </div>
-          </div>
+              {/* تفاصيل العرض */}
+              <div className="space-y-4 bg-white p-6 rounded-[30px] shadow-sm border border-slate-100">
+                <input type="text" required value={product.title} placeholder="اسم الوجبة/المنتج" className="w-full bg-slate-50 border-2 border-transparent rounded-2xl p-4 text-slate-900 font-black focus:border-emerald-500 focus:bg-white outline-none transition-all" onChange={(e) => setProduct({...product, title: e.target.value})} />
+                
+                <textarea 
+                  value={product.description} 
+                  placeholder="وصف شهي للمنتج (المكونات، يكفي لكم شخص...)" 
+                  className="w-full bg-slate-50 border-2 border-transparent rounded-2xl p-4 text-slate-900 font-bold text-sm focus:border-emerald-500 focus:bg-white outline-none resize-none h-28 transition-all" 
+                  onChange={(e) => setProduct({...product, description: e.target.value})} 
+                />
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <select required value={product.category} onChange={(e) => setProduct({...product, category: e.target.value})} className="bg-slate-50 border-2 border-transparent rounded-2xl p-4 text-slate-900 font-black outline-none focus:border-emerald-500 transition-all">
+                    {CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                  </select>
+                  <input type="text" required value={product.currency} placeholder="العملة" className="bg-slate-50 border-2 border-transparent rounded-2xl p-4 text-slate-900 font-black outline-none focus:border-emerald-500 transition-all" onChange={(e) => setProduct({...product, currency: e.target.value})} />
+                </div>
+                
+                <div className="flex gap-4">
+                  <div className="flex-1">
+                    <label className="text-[10px] font-black text-slate-400 mb-1 block">السعر الأساسي</label>
+                    <input type="number" required placeholder="0.00" className="w-full bg-slate-50 border-2 border-transparent rounded-2xl p-4 text-slate-400 font-black text-center line-through focus:border-emerald-500 transition-all" onChange={(e) => setProduct({...product, originalPrice: e.target.value})} />
+                  </div>
+                  <div className="flex-1">
+                    <label className="text-[10px] font-black text-emerald-600 mb-1 block">سعر التخفيض (نِعمة)</label>
+                    <input type="number" required placeholder="0.00" className="w-full bg-emerald-50 border-2 border-emerald-200 rounded-2xl p-4 text-emerald-900 font-black text-center focus:border-emerald-500 transition-all" onChange={(e) => setProduct({...product, discountedPrice: e.target.value})} />
+                  </div>
+                </div>
+              </div>
 
-          <button type="submit" disabled={loading} className="w-full bg-emerald-700 text-white py-5 rounded-[25px] font-black text-lg flex justify-center items-center gap-2 shadow-xl active:scale-95 transition-all">
-            {loading ? <Loader2 className="animate-spin" /> : 'نشر العرض الآن 🚀'}
-          </button>
-        </form>
+              <button type="submit" disabled={loading} className="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-5 rounded-[25px] font-black text-lg flex justify-center items-center gap-2 shadow-[0_10px_20px_rgba(16,185,129,0.2)] active:scale-95 transition-all disabled:opacity-50">
+                {loading ? <Loader2 className="animate-spin" /> : 'إطلاق العرض 🚀'}
+              </button>
+            </form>
+          )}
+        </div>
       )}
 
       <BottomNav activeTab="profile" />
