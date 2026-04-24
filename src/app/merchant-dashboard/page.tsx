@@ -96,26 +96,29 @@ export default function MerchantDashboard() {
     setDataLoading(false)
   }
 
-  // === دالة التحقق من الكود الرقمي (محدثة لتلغي المسافات وتدعم الـ PIN السريع) ===
+  // === دالة التحقق من الكود الرقمي (محدثة للتشخيص الدقيق 🔍) ===
   const handleVerifyTicket = async () => {
     if (!ticketInput) return
     setVerifying(true)
     setScanResult(null)
 
-    // 👑 تنظيف الكود المدخل من أي مسافات خاطئة لضمان عدم فشل البحث
     const cleanTicketCode = ticketInput.trim().toUpperCase()
 
     try {
       const { data: { user } } = await supabase.auth.getUser()
+      
+      // 1. نبحث عن الكود في كل النظام (بدون تقييده بالتاجر حالياً) لنكتشف أين المشكلة
       const { data: order, error } = await supabase
         .from('orders')
         .select(`*, meals (name, image_url)`)
         .eq('ticket_code', cleanTicketCode)
-        .eq('merchant_id', user?.id)
         .single()
 
       if (error || !order) {
-        setScanResult({ error: "الكود غير صحيح أو لا ينتمي لمتجرك ❌" })
+        setScanResult({ error: `الكود (${cleanTicketCode}) غير موجود في النظام نهائياً ❌` })
+      } else if (order.merchant_id !== user?.id) {
+        // 🚨 هنا سنمسك الخطأ إذا كان الـ merchant_id لا يتم حفظه!
+        setScanResult({ error: `الكود صحيح، ولكنه غير مربوط بحسابك كتاجر! ⚠️ (قيمة التاجر في القاعدة: ${order.merchant_id || 'فارغ null'})` })
       } else {
         setScanResult(order)
       }
