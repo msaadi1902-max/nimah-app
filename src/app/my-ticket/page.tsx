@@ -1,7 +1,7 @@
 'use client'
-import React, { Suspense, useState } from 'react'
+import React, { Suspense, useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { ArrowRight, MessageSquareWarning, Copy, UploadCloud, CheckCircle2, Ticket, AlertTriangle, Loader2 } from 'lucide-react'
+import { ArrowRight, MessageSquareWarning, Copy, UploadCloud, CheckCircle2, Ticket, AlertTriangle, Loader2, Store } from 'lucide-react'
 import { createClient } from '@supabase/supabase-js'
 
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
@@ -12,8 +12,45 @@ function TicketContent() {
   const [uploading, setUploading] = useState(false)
   const [isUploaded, setIsUploaded] = useState(false)
   
-  // جلب رقم الطلب من الرابط
+  // بيانات الطلب المضافة حديثاً
+  const [productName, setProductName] = useState('منتج / عرض محجوز')
+  const [loadingProduct, setLoadingProduct] = useState(true)
+
+  // جلب رقم الطلب الأساسي من الرابط
   const orderNumber = searchParams.get('order_no') || 'NIMAH-XXXX' 
+
+  // 👑 جلب تفاصيل الطلب للتأكد من اسم المنتج (مع حل مشكلة TypeScript)
+  useEffect(() => {
+    const fetchOrderDetails = async () => {
+      if (orderNumber === 'NIMAH-XXXX') {
+        setLoadingProduct(false)
+        return
+      }
+      try {
+        const { data: order } = await supabase
+          .from('orders')
+          .select('meals(name)')
+          .eq('ticket_code', orderNumber)
+          .single()
+          
+        // 🛠️ الحل الجذري لمشكلة TypeScript: إجبار المترجم على فهم نوع البيانات
+        if (order?.meals) {
+          const mealData = order.meals as any; // تجاوز صرامة TS
+          const finalName = Array.isArray(mealData) ? mealData[0]?.name : mealData?.name;
+          
+          if (finalName) {
+            setProductName(finalName);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching order details:', error)
+      } finally {
+        setLoadingProduct(false)
+      }
+    }
+    fetchOrderDetails()
+  }, [orderNumber])
+
 
   // 👑 تطوير دالة الرفع لتطابق معاييرنا الصارمة
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -42,7 +79,7 @@ function TicketContent() {
 
   const copyToClipboard = () => {
     navigator.clipboard.writeText(orderNumber)
-    alert('تم نسخ رقم التذكرة 📋')
+    alert('تم نسخ كود الاستلام 📋')
   }
 
   return (
@@ -59,27 +96,33 @@ function TicketContent() {
 
       <div className="bg-white rounded-[45px] overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.2)] relative animate-in zoom-in-95 duration-500">
         
-        {/* قسم الرقم الفاخر */}
+        {/* قسم الرقم الفاخر (التسليم اليدوي) */}
         <div className="p-10 flex flex-col items-center border-b-2 border-dashed border-slate-200 text-center relative bg-slate-50/50">
           <div className="absolute top-4 right-4 bg-emerald-100 text-emerald-700 text-[9px] font-black px-3 py-1 rounded-full uppercase tracking-widest">
             صالحة للاستلام
           </div>
           
-          <p className="text-xs font-black text-slate-400 mb-5 tracking-widest uppercase mt-4">أعطِ هذا الرمز للمطعم للمطابقة</p>
+          <p className="text-xs font-black text-slate-400 mb-5 tracking-widest uppercase mt-4">
+            اقرأ هذا الكود للبائع لتأكيد الاستلام
+          </p>
           
           <div 
             onClick={copyToClipboard}
-            className="bg-white px-8 py-6 rounded-[30px] border-2 border-emerald-500/20 mb-6 shadow-sm cursor-pointer hover:border-emerald-500 transition-colors group relative"
+            className="bg-white px-8 py-6 rounded-[30px] border-2 border-emerald-500/20 mb-6 shadow-sm cursor-pointer hover:border-emerald-500 transition-colors group relative w-full"
             title="اضغط للنسخ"
           >
-            <span className="text-4xl md:text-5xl font-mono font-black text-emerald-700 tracking-[0.2em] group-hover:scale-105 transition-transform block">
+            <span className="text-3xl md:text-4xl font-mono font-black text-emerald-700 tracking-[0.2em] group-hover:scale-105 transition-transform block">
               {orderNumber}
             </span>
             <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-[9px] font-black px-3 py-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
               <Copy size={10} /> نسخ
             </div>
           </div>
-          <h2 className="text-xl font-black text-slate-900 mb-1">وجبة إنقاذ نِعمة</h2>
+          
+          <h2 className="text-lg font-black text-slate-900 mb-1 flex items-center gap-2 justify-center">
+            {loadingProduct ? <Loader2 size={16} className="animate-spin text-slate-400"/> : <Store size={18} className="text-emerald-500"/>}
+            {productName}
+          </h2>
         </div>
 
         {/* قسم الإجراءات ورفع الملفات */}
@@ -87,7 +130,7 @@ function TicketContent() {
           <div className="bg-amber-50 p-4 rounded-2xl border border-amber-100/50 flex gap-3 items-start mb-2">
             <AlertTriangle size={18} className="text-amber-500 shrink-0 mt-0.5" />
             <p className="text-[10px] text-amber-700 font-bold leading-relaxed">
-              إذا طلب منك التاجر إثبات الدفع، يمكنك التقاط لقطة شاشة للطلب ورفعها هنا كإثبات.
+              تأكد من مطابقة المنتج قبل المغادرة. إذا طلب منك البائع إثبات الدفع، يمكنك التقاط لقطة شاشة للطلب ورفعها هنا.
             </p>
           </div>
 
@@ -119,7 +162,7 @@ function TicketContent() {
           </button>
         </div>
 
-        {/* تصميم القص المذهل */}
+        {/* تصميم القص المذهل للبطاقة */}
         <div className="absolute top-[48%] -left-5 w-10 h-10 bg-slate-900 rounded-full shadow-inner"></div>
         <div className="absolute top-[48%] -right-5 w-10 h-10 bg-slate-900 rounded-full shadow-inner"></div>
       </div>
@@ -130,7 +173,7 @@ function TicketContent() {
 export default function OrderNumberTicketPage() {
   return (
     <div className="min-h-screen bg-slate-900 pb-10 text-right p-4 md:p-6 font-sans flex flex-col justify-center" dir="rtl">
-      <Suspense fallback={<div className="flex flex-col items-center justify-center h-screen text-emerald-500"><Loader2 className="animate-spin w-12 h-12 mb-4" /><p className="font-black text-sm tracking-widest animate-pulse">جاري تحضير التذكرة...</p></div>}>
+      <Suspense fallback={<div className="flex flex-col items-center justify-center h-screen text-emerald-500"><Loader2 className="animate-spin w-12 h-12 mb-4" /><p className="font-black text-sm tracking-widest animate-pulse">جاري تحضير تذكرة الاستلام...</p></div>}>
         <div className="max-w-md mx-auto w-full">
           <TicketContent />
         </div>
