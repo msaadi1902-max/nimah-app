@@ -96,18 +96,21 @@ export default function MerchantDashboard() {
     setDataLoading(false)
   }
 
-  // === دالة التحقق من الكود الرقمي ===
+  // === دالة التحقق من الكود الرقمي (محدثة لتلغي المسافات وتدعم الـ PIN السريع) ===
   const handleVerifyTicket = async () => {
     if (!ticketInput) return
     setVerifying(true)
     setScanResult(null)
+
+    // 👑 تنظيف الكود المدخل من أي مسافات خاطئة لضمان عدم فشل البحث
+    const cleanTicketCode = ticketInput.trim().toUpperCase()
 
     try {
       const { data: { user } } = await supabase.auth.getUser()
       const { data: order, error } = await supabase
         .from('orders')
         .select(`*, meals (name, image_url)`)
-        .eq('ticket_code', ticketInput.toUpperCase())
+        .eq('ticket_code', cleanTicketCode)
         .eq('merchant_id', user?.id)
         .single()
 
@@ -156,7 +159,7 @@ export default function MerchantDashboard() {
     }
   }
 
-  // 👑 الميزة الإستراتيجية: الترويج للصفحة الرئيسية (محمية الآن)
+  // 👑 الميزة الإستراتيجية: الترويج للصفحة الرئيسية (محمية)
   const handlePromoteMeal = async (mealId: number) => {
     if (merchantRole !== 'trusted_merchant' && merchantRole !== 'vip') {
       return alert('🔒 عذراً، ميزة ترويج الإعلانات للصفحة الرئيسية متاحة فقط للحسابات الموثقة والمشتركة (VIP). يرجى التواصل مع الإدارة للترقية.');
@@ -382,7 +385,7 @@ export default function MerchantDashboard() {
         </div>
       )}
 
-      {/* 2. تبويب استلام الطلبات (نظام الكود الرقمي) */}
+      {/* 2. تبويب استلام الطلبات (نظام الـ PIN السريع) */}
       {activeTab === 'scan' && (
         <div className="px-6 space-y-6 animate-in zoom-in-95">
            <div className="bg-white p-6 rounded-[35px] shadow-sm border border-slate-100 text-center">
@@ -395,8 +398,8 @@ export default function MerchantDashboard() {
               <input 
                 type="text" 
                 value={ticketInput}
-                onChange={(e) => setTicketInput(e.target.value.toUpperCase())}
-                placeholder="أدخل كود التسليم الرقمي"
+                onChange={(e) => setTicketInput(e.target.value.trim())} // 👑 ميزة ה-trim لإلغاء الفراغات الخاطئة
+                placeholder="مثال: 4829" // 👑 توضيح أن الكود أصبح رقماً بسيطاً
                 className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl p-5 text-center font-mono font-black text-xl tracking-[0.2em] focus:border-blue-500 outline-none transition-all uppercase"
               />
               <button 

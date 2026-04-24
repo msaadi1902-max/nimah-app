@@ -199,7 +199,7 @@ function CheckoutSection() {
 
       // 5. إنشاء التذاكر وإنقاص المخزون (توليد الكود الموحد)
       for (const item of safeCart) {
-        const ticketCode = 'NIMAH-' + Math.random().toString(36).substring(2, 8).toUpperCase();
+        const ticketCode = Math.floor(1000 + Math.random() * 9000).toString(); // يولد رقم مثل: 4829
         const merchantId = typeof item.merchant_id === 'string' ? item.merchant_id : null;
 
         const { error: orderError } = await supabase.from('orders').insert([{
