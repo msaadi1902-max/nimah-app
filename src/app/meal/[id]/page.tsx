@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react'
 import { createClient } from '@supabase/supabase-js'
 import { useParams, useRouter } from 'next/navigation'
-import { ArrowRight, Star, Clock, Calendar, Store, Loader2, MessageSquare, ShieldCheck, Heart, Share2, Info, ShoppingBag, ChevronRight, ChevronLeft } from 'lucide-react'
+import { ArrowRight, Star, Clock, Calendar, Store, Loader2, MessageSquare, ShieldCheck, Heart, Share2, Info, ShoppingBag, ChevronRight, ChevronLeft, MapPin } from 'lucide-react'
 import { useCart } from '../../context/CartContext'
 
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
@@ -50,20 +50,25 @@ export default function MealDetailsPage() {
 
   const handleAddToCart = () => {
     if (!meal) return
+    
+    // 🛠️ تم إضافة 'as any' لتجاوز فحص القالب القديم (Deal) والسماح بمرور العنوان للسلة
     addToCart({
       id: meal.id.toString(),
       name: meal.name,
       store: meal.profiles?.shop_name || meal.category,
       price: meal.discounted_price,
       image: meal.image_url,
-      merchant_id: meal.merchant_id 
-    })
-    alert('🛒 تمت إضافة الوجبة إلى سلتك بنجاح!')
+      merchant_id: meal.merchant_id,
+      state: meal.state, // 👑 المحافظة
+      city: meal.city    // 👑 المدينة
+    } as any) 
+    
+    alert('🛒 تم إضافة المنتج إلى سلتك بنجاح!')
   }
 
   const handleToggleFavorite = async () => {
     if (!user) {
-      alert('يرجى تسجيل الدخول كزبون للاحتفاظ بالوجبات في مفضلتك ❤️')
+      alert('يرجى تسجيل الدخول كزبون للاحتفاظ بالمنتجات في مفضلتك ❤️')
       router.push('/welcome')
       return
     }
@@ -106,7 +111,7 @@ export default function MealDetailsPage() {
   )
 
   if (loading) return <div className="min-h-screen bg-gray-50 flex justify-center items-center"><Loader2 className="animate-spin text-emerald-600 w-12 h-12"/></div>
-  if (!meal) return <div className="min-h-screen flex justify-center items-center text-gray-500 font-black">عذراً، هذا العرض غير متوفر أو تم حذفه ❌</div>
+  if (!meal) return <div className="min-h-screen flex justify-center items-center text-gray-500 font-black">عذراً، هذا الإعلان غير متوفر أو تم حذفه ❌</div>
 
   return (
     <div className="min-h-screen bg-gray-50 pb-32 text-right font-sans" dir="rtl">
@@ -117,17 +122,15 @@ export default function MealDetailsPage() {
           src={images[currentImageIndex]} 
           alt={meal.name} 
           className="w-full h-full object-cover transition-transform duration-700" 
-          key={currentImageIndex} // لإعطاء تأثير انتقال لطيف
+          key={currentImageIndex} 
         />
         <div className="absolute inset-0 bg-gradient-to-t from-slate-900/90 via-slate-900/20 to-transparent"></div>
         
-        {/* أزرار التنقل بين الصور */}
         {images.length > 1 && (
           <>
             <button onClick={prevImage} className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/30 backdrop-blur-md p-2 rounded-full text-white hover:bg-white/50 transition-colors"><ChevronLeft size={24} /></button>
             <button onClick={nextImage} className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/30 backdrop-blur-md p-2 rounded-full text-white hover:bg-white/50 transition-colors"><ChevronRight size={24} /></button>
             
-            {/* نقاط السلايدر */}
             <div className="absolute bottom-28 left-0 right-0 flex justify-center gap-2 z-20">
             {images.map((_: any, idx: number) => (
                 <div key={idx} className={`h-1.5 rounded-full transition-all ${idx === currentImageIndex ? 'w-6 bg-emerald-400' : 'w-1.5 bg-white/50'}`}></div>
@@ -159,8 +162,14 @@ export default function MealDetailsPage() {
         <div className="bg-white p-6 rounded-[35px] shadow-xl shadow-gray-200/50 border border-gray-100 flex justify-between items-center">
           <div>
             <p className="text-sm font-bold text-gray-500 mb-1 flex items-center gap-1.5 bg-gray-50 px-2 py-1 rounded-lg w-fit">
-              <Store size={14} className="text-emerald-600"/> {meal.profiles?.shop_name || 'تاجر معتمد'}
+              <Store size={14} className="text-emerald-600"/> {meal.profiles?.shop_name || 'بائع معتمد'}
             </p>
+            {/* 👑 عرض موقع الإعلان الواضح */}
+            {(meal.state || meal.city) && (
+              <p className="text-[10px] font-black text-emerald-700 flex items-center gap-1 mt-2 bg-emerald-50 px-2 py-1 rounded-lg w-fit border border-emerald-100">
+                <MapPin size={12}/> {meal.state} {meal.city && `- ${meal.city}`}
+              </p>
+            )}
             <div className="flex items-center gap-2 mt-2">
               <Star size={18} className={avgTotal === 'جديد' ? 'text-gray-300' : 'text-amber-400 fill-amber-400'} />
               <span className="font-black text-gray-800 text-lg">{avgTotal} <span className="text-xs text-gray-400">({totalReviews} تقييم)</span></span>
@@ -176,42 +185,41 @@ export default function MealDetailsPage() {
           <div className="flex flex-col items-start gap-2 bg-orange-50/50 p-4 rounded-3xl border border-orange-100/50">
             <div className="bg-orange-100 p-2.5 rounded-2xl text-orange-600"><Calendar size={20}/></div>
             <div>
-              <p className="text-[10px] text-gray-500 font-bold mb-1">صلاحية العرض</p>
+              <p className="text-[10px] text-gray-500 font-bold mb-1">صلاحية الإعلان</p>
               <p className="text-xs font-black text-gray-800 leading-snug">{meal.start_date || 'غير محدد'} <br/> <span className="text-gray-400">حتى</span> {meal.end_date || 'غير محدد'}</p>
             </div>
           </div>
           <div className="flex flex-col items-start gap-2 bg-blue-50/50 p-4 rounded-3xl border border-blue-100/50">
             <div className="bg-blue-100 p-2.5 rounded-2xl text-blue-600"><Clock size={20}/></div>
             <div>
-              <p className="text-[10px] text-gray-500 font-bold mb-1">وقت الاستلام</p>
+              <p className="text-[10px] text-gray-500 font-bold mb-1">وقت التواصل/الاستلام</p>
               <p className="text-xs font-black text-gray-800 leading-snug">{meal.pickup_time || 'غير محدد'}</p>
             </div>
           </div>
         </div>
 
-        {/* 👑 عرض ملاحظات التاجر إن وجدت */}
         {meal.description && (
           <div className="bg-white p-6 rounded-[35px] shadow-sm border border-emerald-100/50 relative overflow-hidden">
             <div className="absolute top-0 right-0 w-16 h-16 bg-emerald-50 rounded-bl-[40px] -z-10"></div>
-            <h3 className="font-black text-gray-900 mb-3 flex items-center gap-2"><Info size={18} className="text-emerald-500"/> ملاحظات وتفاصيل</h3>
+            <h3 className="font-black text-gray-900 mb-3 flex items-center gap-2"><Info size={18} className="text-emerald-500"/> وصف المنتج</h3>
             <p className="text-sm text-gray-600 font-bold leading-relaxed whitespace-pre-line">{meal.description}</p>
           </div>
         )}
 
         <div className="bg-white p-6 rounded-[35px] shadow-sm border border-gray-100 mb-10">
-          <h3 className="font-black text-gray-900 mb-6 flex items-center gap-2"><ShieldCheck className="text-emerald-500"/> تجارب الزبائن</h3>
+          <h3 className="font-black text-gray-900 mb-6 flex items-center gap-2"><ShieldCheck className="text-emerald-500"/> تقييمات المنتج</h3>
           
           {totalReviews === 0 ? (
             <div className="text-center py-8 bg-gray-50 rounded-3xl border border-dashed border-gray-200">
               <MessageSquare size={36} className="mx-auto text-gray-300 mb-3" />
-              <p className="text-gray-500 font-bold text-sm">كن أول من يجرب هذا العرض الرائع ويقيمه! ✨</p>
+              <p className="text-gray-500 font-bold text-sm">كن أول من يشتري هذا العرض الرائع ويقيمه! ✨</p>
             </div>
           ) : (
             <>
               <div className="mb-8 bg-gray-50 p-6 rounded-3xl border border-gray-100">
-                <RatingBar label="الجودة والطعم" value={Number(avgQuality)} />
-                <RatingBar label="جودة الخدمة" value={Number(avgService)} />
-                <RatingBar label="النظافة" value={Number(avgClean)} />
+                <RatingBar label="جودة المنتج" value={Number(avgQuality)} />
+                <RatingBar label="مصداقية البائع" value={Number(avgService)} />
+                <RatingBar label="النظافة/الحالة" value={Number(avgClean)} />
               </div>
 
               <div className="space-y-5">
@@ -223,7 +231,7 @@ export default function MealDetailsPage() {
                           {rev.profiles?.full_name?.charAt(0) || 'ز'}
                         </div>
                         <div>
-                          <p className="text-xs font-black text-gray-900">{rev.profiles?.full_name || 'زبون لنِعمة'}</p>
+                          <p className="text-xs font-black text-gray-900">{rev.profiles?.full_name || 'مشتري'}</p>
                           <p className="text-[10px] text-gray-400 font-bold mt-0.5">{new Date(rev.created_at).toLocaleDateString('ar-EG')}</p>
                         </div>
                       </div>
@@ -249,13 +257,13 @@ export default function MealDetailsPage() {
       <div className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-2xl p-6 rounded-t-[40px] shadow-[0_-20px_40px_rgba(0,0,0,0.08)] border-t border-gray-100 z-50">
         <div className="flex items-center gap-4 max-w-md mx-auto">
           <div className="bg-gray-50 p-3.5 rounded-[20px] text-center min-w-[75px] border border-gray-200">
-            <span className="block text-[9px] font-bold text-gray-500 mb-0.5">الكمية المتاحة</span>
+            <span className="block text-[9px] font-bold text-gray-500 mb-0.5">المخزون</span>
             <span className={`font-black leading-none text-xl ${meal.quantity > 0 ? 'text-emerald-600' : 'text-rose-500'}`}>{meal.quantity}</span>
           </div>
           <button 
             onClick={handleAddToCart}
             disabled={meal.quantity <= 0}
-            className="flex-1 bg-gray-900 disabled:bg-gray-200 disabled:text-gray-400 text-white py-4.5 rounded-[20px] font-black text-sm flex items-center justify-center gap-2 active:scale-95 transition-all shadow-xl shadow-gray-900/20 hover:bg-black h-16"
+            className="flex-1 bg-slate-900 disabled:bg-gray-200 disabled:text-gray-400 text-white py-4.5 rounded-[20px] font-black text-sm flex items-center justify-center gap-2 active:scale-95 transition-all shadow-xl shadow-slate-900/20 hover:bg-slate-800 h-16"
           >
             {meal.quantity > 0 ? (
               <><ShoppingBag size={20} /> أضف إلى سلة المشتريات</>
