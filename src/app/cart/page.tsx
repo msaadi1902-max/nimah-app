@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from "react";
-import { ShoppingCart, Trash2, Heart, ArrowRight, Loader2, Wallet, CheckCircle, ShieldCheck, Ticket, Store } from "lucide-react";
+import { ShoppingCart, Trash2, Heart, ArrowRight, Loader2, Wallet, CheckCircle, ShieldCheck, Ticket, Store, MapPin } from "lucide-react";
 import { useCart } from "../context/CartContext";
 import BottomNav from "@/components/BottomNav";
 import { useRouter } from "next/navigation";
@@ -48,7 +48,7 @@ function TopHeader() {
       </div>
       <div className="bg-emerald-500/10 text-emerald-600 text-xs font-black px-4 py-2.5 rounded-2xl border border-emerald-500/20 flex items-center gap-2 shadow-sm">
         <ShoppingCart size={16} />
-        {cartLength > 0 ? `${cartLength} عناصر` : "فارغة"}
+        {cartLength > 0 ? `${cartLength} منتجات` : "فارغة"}
       </div>
     </div>
   );
@@ -67,9 +67,9 @@ function CartItems() {
           <ShoppingCart className="w-14 h-14 text-slate-200" />
         </div>
         <p className="font-black text-2xl text-slate-900 mb-2">السلة فارغة تماماً!</p>
-        <p className="text-sm font-bold text-slate-400 text-center leading-relaxed mb-8">لم تقم بإضافة أي وجبات بعد. ابدأ باستكشاف العروض المذهلة وأنقذ طعاماً لذيذاً.</p>
-        <button onClick={() => router.push('/')} className="bg-slate-900 text-white px-8 py-4 rounded-2xl font-black text-sm active:scale-95 transition-all shadow-xl hover:bg-slate-800">
-          استكشاف العروض الآن 🚀
+        <p className="text-sm font-bold text-slate-400 text-center leading-relaxed mb-8">لم تقم بإضافة أي منتجات بعد. استكشف العروض المذهلة في السوق الشامل وتسوق بذكاء.</p>
+        <button onClick={() => router.push('/browse')} className="bg-slate-900 text-white px-8 py-4 rounded-2xl font-black text-sm active:scale-95 transition-all shadow-xl hover:bg-slate-800">
+          استكشاف السوق الآن 🚀
         </button>
       </div>
     );
@@ -85,16 +85,16 @@ function CartItems() {
           <div key={item.id} className="flex items-center gap-4 bg-white p-4 rounded-[30px] border border-slate-100 shadow-sm relative overflow-hidden group hover:shadow-md hover:border-emerald-100 transition-all">
             <div className="w-24 h-24 bg-slate-50 rounded-[20px] overflow-hidden flex-shrink-0 border border-slate-100 relative">
               {item.image && typeof item.image === 'string' && item.image.startsWith('http') ? (
-                <img src={item.image} alt={item.name || 'وجبة'} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+                <img src={item.image} alt={item.name || 'منتج'} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
               ) : (
-                <div className="w-full h-full flex items-center justify-center text-4xl bg-slate-100">🍱</div>
+                <div className="w-full h-full flex items-center justify-center text-4xl bg-slate-100">📦</div>
               )}
             </div>
             
             <div className="flex-1 min-w-0 py-1">
               <h3 className="font-black text-slate-900 text-sm truncate mb-1">{item.name || 'عنصر غير معروف'}</h3>
               <p className="text-[10px] font-black text-slate-500 mb-2 truncate flex items-center gap-1">
-                <Store size={12} className="text-emerald-500"/> {item.store || 'متجر نِعمة'}
+                <Store size={12} className="text-emerald-500 shrink-0"/> {item.store || 'بائع نِعمة'}
               </p>
               <div className="font-black text-emerald-600 text-xl tracking-tight bg-emerald-50 w-fit px-3 py-1 rounded-xl">
                 {itemPrice.toFixed(2)} <span className="text-[10px] font-bold">€</span>
@@ -135,6 +135,9 @@ function CheckoutSection() {
 
   if (safeCart.length === 0) return null;
 
+  // 👑 استخراج مواقع الاستلام من السلة ليعرف الزبون أين سيذهب
+  const uniqueLocations = Array.from(new Set(safeCart.filter((i: any) => i.state).map((i: any) => `${i.state} - ${i.city}`)));
+
   const handleCheckout = async () => {
     setLoading(true);
     try {
@@ -174,9 +177,9 @@ function CheckoutSection() {
           .eq('id', item.id)
           .single();
 
-        if (mealError || !mealData) throw new Error(`تعذر التحقق من حالة الوجبة: ${item.name || 'مجهولة'}`);
+        if (mealError || !mealData) throw new Error(`تعذر التحقق من حالة المنتج: ${item.name || 'مجهول'}`);
         if (mealData.quantity < 1) {
-          throw new Error(`نفدت الكمية! عذراً، الوجبة "${item.name}" لم تعد متوفرة حالياً.`);
+          throw new Error(`نفدت الكمية! عذراً، المنتج "${item.name}" لم يعد متوفراً حالياً.`);
         }
       }
 
@@ -194,7 +197,7 @@ function CheckoutSection() {
         reference_number: `NIMAH-${Date.now().toString(36).toUpperCase()}`
       }]);
 
-      // 5. إنشاء التذاكر وإنقاص المخزون
+      // 5. إنشاء التذاكر وإنقاص المخزون (توليد الكود الموحد)
       for (const item of safeCart) {
         const ticketCode = 'NIMAH-' + Math.random().toString(36).substring(2, 8).toUpperCase();
         const merchantId = typeof item.merchant_id === 'string' ? item.merchant_id : null;
@@ -207,7 +210,7 @@ function CheckoutSection() {
           price: Number(item.price) || 0,
           quantity: 1,
           status: 'active',
-          ticket_code: ticketCode
+          ticket_code: ticketCode // 👑 هنا يتم حفظ الكود الفريد لضمان التطابق مع البائع
         }]);
 
         if (orderError) throw orderError;
@@ -218,7 +221,7 @@ function CheckoutSection() {
         }
       }
 
-      alert("🎉 مبروك! تم الدفع وإصدار التذاكر بنجاح. تفضل باستلام وجباتك.");
+      alert("🎉 مبروك! تم إتمام الشراء بنجاح. يمكنك الآن التوجه للبائع وتزويده بكود الاستلام.");
       clearCart();
       router.push('/tickets'); 
       
@@ -280,8 +283,25 @@ function CheckoutSection() {
         )}
       </div>
 
-      {/* 🧾 ملخص الفاتورة */}
+      {/* 🧾 ملخص الفاتورة ومواقع الاستلام */}
       <div className="space-y-3 mb-8 px-2 bg-slate-50/50 p-5 rounded-[30px] border border-slate-100">
+        
+        {/* 👑 عرض مواقع الاستلام ليطمئن الزبون */}
+        {uniqueLocations.length > 0 && (
+          <div className="pb-3 mb-3 border-b border-slate-200/60">
+            <span className="text-[10px] font-black text-slate-400 mb-2 flex items-center gap-1">
+              <MapPin size={12} className="text-emerald-500"/> مناطق استلام الطلبات:
+            </span>
+            <div className="flex flex-wrap gap-1.5">
+              {uniqueLocations.map((loc, idx) => (
+                <span key={idx} className="text-[9px] bg-white border border-slate-200 text-slate-600 px-2 py-1 rounded-md font-bold">
+                  {loc}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
         <div className="flex justify-between items-center text-xs font-bold text-slate-500">
           <span>المجموع الفرعي ({safeCart.length} عناصر)</span>
           <span className="text-slate-900 font-black">€{subtotal.toFixed(2)}</span>
@@ -311,7 +331,7 @@ function CheckoutSection() {
         disabled={loading}
         className="w-full bg-slate-900 text-white font-black py-5 rounded-[25px] flex items-center justify-center gap-3 shadow-[0_10px_30px_rgba(15,23,42,0.3)] hover:bg-slate-800 hover:shadow-[0_10px_40px_rgba(15,23,42,0.4)] active:scale-95 transition-all duration-300 disabled:opacity-70 disabled:active:scale-100"
       >
-        {loading ? <Loader2 className="animate-spin" size={24} /> : <><Wallet className="w-6 h-6 text-emerald-400" /> إتمام الدفع الآمن</>}
+        {loading ? <Loader2 className="animate-spin" size={24} /> : <><Wallet className="w-6 h-6 text-emerald-400" /> إتمام الشراء الآمن</>}
       </button>
     </div>
   );
