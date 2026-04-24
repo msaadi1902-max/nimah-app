@@ -96,29 +96,28 @@ export default function MerchantDashboard() {
     setDataLoading(false)
   }
 
-  // === دالة التحقق من الكود الرقمي (محدثة للتشخيص الدقيق 🔍) ===
+  // === دالة التحقق من الكود الرقمي (النسخة الخارقة 🚀) ===
   const handleVerifyTicket = async () => {
     if (!ticketInput) return
     setVerifying(true)
     setScanResult(null)
 
-    const cleanTicketCode = ticketInput.trim().toUpperCase()
+    // تحويل الأرقام العربية إلى إنجليزية إن وجدت، ثم إزالة الفراغات
+    const englishNumbers = ticketInput.replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d).toString());
+    const cleanTicketCode = englishNumbers.trim().toUpperCase()
 
     try {
       const { data: { user } } = await supabase.auth.getUser()
       
-      // 1. نبحث عن الكود في كل النظام (بدون تقييده بالتاجر حالياً) لنكتشف أين المشكلة
       const { data: order, error } = await supabase
         .from('orders')
         .select(`*, meals (name, image_url)`)
         .eq('ticket_code', cleanTicketCode)
+        .eq('merchant_id', user?.id) // التأكد من ملكية المتجر
         .single()
 
       if (error || !order) {
-        setScanResult({ error: `الكود (${cleanTicketCode}) غير موجود في النظام نهائياً ❌` })
-      } else if (order.merchant_id !== user?.id) {
-        // 🚨 هنا سنمسك الخطأ إذا كان الـ merchant_id لا يتم حفظه!
-        setScanResult({ error: `الكود صحيح، ولكنه غير مربوط بحسابك كتاجر! ⚠️ (قيمة التاجر في القاعدة: ${order.merchant_id || 'فارغ null'})` })
+        setScanResult({ error: `عذراً، الكود غير صحيح أو لا ينتمي لمتجرك ❌` })
       } else {
         setScanResult(order)
       }
@@ -128,7 +127,6 @@ export default function MerchantDashboard() {
       setVerifying(false)
     }
   }
-
   // === دالة تأكيد تسليم المنتج ===
   const handleRedeemTicket = async (orderId: string) => {
     setLoading(true)
