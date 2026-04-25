@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react'
 import { createClient } from '@supabase/supabase-js'
 import { 
   Search, MapPin, Clock, ShoppingBag, Flame, Store, 
-  Plus, Star, Sparkles, Calendar, Heart, Megaphone, Map 
+  Plus, Star, Sparkles, Calendar, Heart, Megaphone, Map, Loader2, RefreshCw 
 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import BottomNav from '@/components/BottomNav'
@@ -13,7 +13,6 @@ const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env
 
 const CATEGORIES = ['الكل', 'مطاعم', 'مخابز', 'حلويات', 'بقالة', 'ألبسة', 'عطور', 'عصرونية', 'موبايلات', 'أثاث', 'آخر']
 
-// 👑 تعريف نوع البيانات (TypeScript Interface) لضمان قوة الكود ومنع الأخطاء
 interface Meal {
   id: number;
   name: string;
@@ -24,13 +23,14 @@ interface Meal {
   image_url: string;
   merchant_id: string;
   pickup_time: string;
-  start_date?: string; /* 👑 هذا هو السطر الذي أضفناه لحل المشكلة */
+  start_date?: string;
   end_date: string;
   is_golden?: boolean;
   is_sponsored?: boolean;
   rating?: string | number;
   reviewsCount?: number;
 }
+
 export default function HomePage() {
   const [meals, setMeals] = useState<Meal[]>([])
   const [loading, setLoading] = useState(true)
@@ -40,11 +40,16 @@ export default function HomePage() {
   const [user, setUser] = useState<any>(null)
   const [favoriteIds, setFavoriteIds] = useState<number[]>([])
   
+  // 👑 حالات الموقع الذكي
+  const [locationName, setLocationName] = useState('جاري تحديد الموقع...')
+  const [isLocating, setIsLocating] = useState(false)
+  
   const router = useRouter()
   const { addToCart, cart } = useCart()
 
   useEffect(() => {
     checkUserAndFavorites()
+    getUserLocation() // تشغيل تحديد الموقع عند فتح التطبيق
   }, [])
 
   useEffect(() => {
@@ -60,7 +65,30 @@ export default function HomePage() {
     }
   }
 
-  // 👑 جلب الإعلانات الممولة فقط للصفحة الرئيسية
+  // 👑 ميزة جلب الموقع الحقيقي للزبون وترجمته لاسم مدينة وحي
+  const getUserLocation = () => {
+    if (!navigator.geolocation) {
+      setLocationName('التوصيل إلى موقعي')
+      return
+    }
+    setIsLocating(true)
+    navigator.geolocation.getCurrentPosition(async (pos) => {
+      try {
+        const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${pos.coords.latitude}&lon=${pos.coords.longitude}&accept-language=ar`)
+        const data = await res.json()
+        const city = data.address.city || data.address.town || data.address.state || 'موقعي'
+        const suburb = data.address.suburb || data.address.neighbourhood || ''
+        setLocationName(`${city}${suburb ? '، ' + suburb : ''}`)
+      } catch (error) {
+        setLocationName('تم تحديد الموقع 📍')
+      }
+      setIsLocating(false)
+    }, () => {
+      setLocationName('التوصيل إلى موقعي (تفعيل الـ GPS مطلوب)')
+      setIsLocating(false)
+    })
+  }
+
   const fetchSponsoredMeals = async () => {
     setLoading(true)
     const today = new Date().toISOString().split('T')[0]
@@ -127,14 +155,12 @@ export default function HomePage() {
     }
   }
 
-  // 👑 ميزة احترافية: حساب نسبة الخصم
   const calculateDiscount = (original: number, discounted: number) => {
     if (!original || !discounted || original <= discounted) return null;
     const percentage = Math.round(((original - discounted) / original) * 100);
     return percentage > 0 ? percentage : null;
   }
 
-  // الفلاتر
   const goldenAds = meals.filter(meal => meal.is_golden === true)
   const regularAds = meals.filter(meal => meal.is_golden !== true)
   const filteredAds = regularAds.filter(meal => 
@@ -142,7 +168,6 @@ export default function HomePage() {
     meal.category.includes(searchQuery)
   )
 
-  // 🦴 مكون التحميل الهيكلي (Skeleton) لتجربة مستخدم فاخرة
   const SkeletonCard = () => (
     <div className="bg-white rounded-[35px] overflow-hidden shadow-sm border border-slate-100 p-4 animate-pulse">
       <div className="h-44 bg-slate-200 rounded-3xl mb-4 w-full"></div>
@@ -161,21 +186,24 @@ export default function HomePage() {
   return (
     <div className="min-h-screen bg-slate-50 pb-28 text-right font-sans" dir="rtl">
       
-      {/* 👑 الهيدر الفاخر (Glassmorphism) */}
       <div className="bg-emerald-600 px-6 pt-12 pb-8 rounded-b-[45px] shadow-[0_10px_30px_rgba(5,150,105,0.2)] relative overflow-hidden">
-        {/* تأثيرات إضاءة في الهيدر */}
         <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-400/30 rounded-full -mr-20 -mt-20 blur-3xl pointer-events-none"></div>
         <div className="absolute bottom-0 left-0 w-40 h-40 bg-teal-500/30 rounded-full -ml-10 -mb-10 blur-2xl pointer-events-none"></div>
         
         <div className="flex justify-between items-center mb-8 text-white relative z-10">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 bg-white/10 backdrop-blur-md rounded-2xl flex items-center justify-center border border-white/20">
-              <Map size={24} className="text-white" />
+            <div 
+              onClick={getUserLocation}
+              className="w-12 h-12 bg-white/10 backdrop-blur-md rounded-2xl flex items-center justify-center border border-white/20 cursor-pointer hover:bg-white/20 transition-all active:scale-95"
+              title="تحديث الموقع"
+            >
+              {isLocating ? <Loader2 size={24} className="text-white animate-spin" /> : <Map size={24} className="text-white" />}
             </div>
             <div>
-              <p className="text-[10px] font-black text-emerald-100 uppercase tracking-widest mb-0.5">موقعك الحالي</p>
-              <h1 className="text-sm font-black flex items-center gap-1">
-                دمشق، الميدان
+              <p className="text-[10px] font-black text-emerald-100 uppercase tracking-widest mb-0.5">موقع التوصيل</p>
+              <h1 className="text-sm font-black flex items-center gap-1 cursor-pointer" onClick={getUserLocation}>
+                {locationName}
+                {!isLocating && <RefreshCw size={12} className="text-emerald-200 opacity-70 ml-1" />}
               </h1>
             </div>
           </div>
@@ -189,7 +217,6 @@ export default function HomePage() {
           </button>
         </div>
 
-        {/* شريط البحث المدمج */}
         <div className="relative z-10 group">
           <input 
             type="text" 
@@ -202,7 +229,6 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* 🧭 أقسام الفلترة السريعة */}
       <div className="px-6 mt-6 overflow-x-auto hide-scrollbar">
         <div className="flex gap-3 w-max pb-2">
           {CATEGORIES.map((cat) => (
@@ -221,7 +247,6 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* 👑 قسم إعلانات الـ VIP (Golden Ads) */}
       {!searchQuery && selectedCategory === 'الكل' && goldenAds.length > 0 && (
         <div className="px-6 mt-8 animate-in fade-in duration-500">
           <h2 className="text-lg font-black text-transparent bg-clip-text bg-gradient-to-r from-amber-500 to-yellow-600 mb-4 flex items-center gap-2">
@@ -232,7 +257,6 @@ export default function HomePage() {
             {goldenAds.map((meal) => (
               <div key={`gold-${meal.id}`} onClick={() => router.push(`/meal/${meal.id}`)} className="cursor-pointer min-w-[280px] bg-gradient-to-br from-slate-900 to-slate-800 text-white rounded-[35px] overflow-hidden shadow-[0_10px_20px_rgba(245,158,11,0.15)] border border-amber-500/30 relative snap-center group">
                 
-                {/* شريط VIP */}
                 <div className="absolute top-4 right-4 z-10 bg-gradient-to-r from-amber-400 to-yellow-500 text-slate-900 text-[10px] font-black px-3 py-1.5 rounded-full shadow-[0_0_15px_rgba(245,158,11,0.5)] flex items-center gap-1 backdrop-blur-md">
                   <Megaphone size={12} className="fill-slate-900"/> إعلان ممول
                 </div>
@@ -264,14 +288,12 @@ export default function HomePage() {
         </div>
       )}
 
-      {/* 🚀 قسم الإعلانات المميزة العادية */}
       <div className="p-6 mt-2">
         <h2 className="text-lg font-black text-slate-900 mb-6 flex items-center gap-2">
           <Flame size={20} className="text-rose-500 fill-rose-500" /> العروض الحصرية 🔥
         </h2>
 
         {loading ? (
-          // عرض الهيكل أثناء التحميل (Skeleton)
           <div className="space-y-5">
             <SkeletonCard />
             <SkeletonCard />
@@ -295,7 +317,6 @@ export default function HomePage() {
               return (
                 <div key={`norm-${meal.id}`} onClick={() => router.push(`/meal/${meal.id}`)} className="cursor-pointer bg-white rounded-[35px] overflow-hidden shadow-sm border border-slate-100 relative group animate-in slide-in-from-bottom-4 duration-500 hover:shadow-[0_10px_30px_rgba(0,0,0,0.05)] hover:border-emerald-100 transition-all">
                   
-                  {/* شارات الإعلان والخصم */}
                   <div className="absolute top-4 right-4 z-10 flex flex-col gap-2">
                     <div className="bg-indigo-500/90 backdrop-blur-sm text-white text-[10px] font-black px-3 py-1.5 rounded-full shadow-sm flex items-center gap-1 w-fit">
                       <Megaphone size={10} /> إعلان مميز

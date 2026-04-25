@@ -20,6 +20,9 @@ export default function MealDetailsPage() {
 
   // 👑 حالة السلايدر (التنقل بين الصور)
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
+  
+  // 👑 ميزة جديدة: حالة لتحديد الكمية المطلوبة قبل الإضافة للسلة
+  const [selectedQuantity, setSelectedQuantity] = useState(1)
 
   useEffect(() => {
     if (params.id) {
@@ -51,7 +54,7 @@ export default function MealDetailsPage() {
   const handleAddToCart = () => {
     if (!meal) return
     
-    // 🛠️ تم إضافة 'as any' لتجاوز فحص القالب القديم (Deal) والسماح بمرور العنوان للسلة
+    // 🛠️ تمرير الكمية المطلوبة (selectedQuantity) إلى السلة
     addToCart({
       id: meal.id.toString(),
       name: meal.name,
@@ -59,11 +62,12 @@ export default function MealDetailsPage() {
       price: meal.discounted_price,
       image: meal.image_url,
       merchant_id: meal.merchant_id,
-      state: meal.state, // 👑 المحافظة
-      city: meal.city    // 👑 المدينة
+      state: meal.state,
+      city: meal.city,
+      quantity: selectedQuantity // 👑 إضافة الكمية هنا
     } as any) 
     
-    alert('🛒 تم إضافة المنتج إلى سلتك بنجاح!')
+    alert(`🛒 تم إضافة (${selectedQuantity}) من المنتج إلى سلتك بنجاح!`)
   }
 
   const handleToggleFavorite = async () => {
@@ -86,7 +90,6 @@ export default function MealDetailsPage() {
     }
   }
 
-  // 👑 مصفوفة الصور للسلايدر
   const images = meal?.images_gallery && meal.images_gallery.length > 0 
     ? meal.images_gallery 
     : [meal?.image_url]
@@ -116,7 +119,6 @@ export default function MealDetailsPage() {
   return (
     <div className="min-h-screen bg-gray-50 pb-32 text-right font-sans" dir="rtl">
       
-      {/* 👑 قسم السلايدر المتطور للصور */}
       <div className="relative h-[350px] bg-gray-200 overflow-hidden group">
         <img 
           src={images[currentImageIndex]} 
@@ -164,7 +166,6 @@ export default function MealDetailsPage() {
             <p className="text-sm font-bold text-gray-500 mb-1 flex items-center gap-1.5 bg-gray-50 px-2 py-1 rounded-lg w-fit">
               <Store size={14} className="text-emerald-600"/> {meal.profiles?.shop_name || 'بائع معتمد'}
             </p>
-            {/* 👑 عرض موقع الإعلان الواضح */}
             {(meal.state || meal.city) && (
               <p className="text-[10px] font-black text-emerald-700 flex items-center gap-1 mt-2 bg-emerald-50 px-2 py-1 rounded-lg w-fit border border-emerald-100">
                 <MapPin size={12}/> {meal.state} {meal.city && `- ${meal.city}`}
@@ -256,22 +257,38 @@ export default function MealDetailsPage() {
 
       <div className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-2xl p-6 rounded-t-[40px] shadow-[0_-20px_40px_rgba(0,0,0,0.08)] border-t border-gray-100 z-50">
         <div className="flex items-center gap-4 max-w-md mx-auto">
-          <div className="bg-gray-50 p-3.5 rounded-[20px] text-center min-w-[75px] border border-gray-200">
-            <span className="block text-[9px] font-bold text-gray-500 mb-0.5">المخزون</span>
-            <span className={`font-black leading-none text-xl ${meal.quantity > 0 ? 'text-emerald-600' : 'text-rose-500'}`}>{meal.quantity}</span>
+          
+          {/* 👑 واجهة التحكم بالكمية الجديدة */}
+          <div className="bg-gray-50 flex items-center justify-between p-2 rounded-[20px] min-w-[120px] border border-gray-200 h-16 shadow-inner">
+            <button 
+              onClick={() => setSelectedQuantity(prev => Math.min(prev + 1, meal.quantity))}
+              disabled={selectedQuantity >= meal.quantity || meal.quantity <= 0}
+              className="w-10 h-10 bg-white rounded-xl shadow-sm text-emerald-600 font-bold text-xl flex items-center justify-center disabled:opacity-40 active:scale-95 transition-transform"
+            >+</button>
+            <span className="font-black text-xl text-slate-800 w-8 text-center">{selectedQuantity}</span>
+            <button 
+              onClick={() => setSelectedQuantity(prev => Math.max(prev - 1, 1))}
+              disabled={selectedQuantity <= 1 || meal.quantity <= 0}
+              className="w-10 h-10 bg-white rounded-xl shadow-sm text-rose-500 font-bold text-xl flex items-center justify-center disabled:opacity-40 active:scale-95 transition-transform"
+            >-</button>
           </div>
+
           <button 
             onClick={handleAddToCart}
             disabled={meal.quantity <= 0}
             className="flex-1 bg-slate-900 disabled:bg-gray-200 disabled:text-gray-400 text-white py-4.5 rounded-[20px] font-black text-sm flex items-center justify-center gap-2 active:scale-95 transition-all shadow-xl shadow-slate-900/20 hover:bg-slate-800 h-16"
           >
             {meal.quantity > 0 ? (
-              <><ShoppingBag size={20} /> أضف إلى سلة المشتريات</>
+              <><ShoppingBag size={20} /> أضف {selectedQuantity > 1 ? `(${selectedQuantity})` : ''} للسلة</>
             ) : (
               'نفدت الكمية الحالية 😔'
             )}
           </button>
         </div>
+        {/* نص توضيحي للمخزون المتبقي */}
+        {meal.quantity > 0 && (
+          <p className="text-center text-[10px] font-bold text-gray-400 mt-3">الكمية المتبقية في المتجر: {meal.quantity}</p>
+        )}
       </div>
 
     </div>
